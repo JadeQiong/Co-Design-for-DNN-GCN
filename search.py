@@ -6,6 +6,7 @@ import numpy as np
 h = Accelerator(10,4,4,10,10)
 net = Network([("cov", 20, 20),("cov", 15, 15)])
 h.print()
+net.print()
 
 # objective function
 t_comm = 0
