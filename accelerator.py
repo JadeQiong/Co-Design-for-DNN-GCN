@@ -1,7 +1,7 @@
 import numpy as np
 
 class Accelerator(object):
-    def __init__(self, PE_size, PE_numX, PE_numY, global_buf_size, pe_buffer_size):
+    def __init__(self, PE_size = 10, PE_numX = 4, PE_numY=4, global_buf_size=100, pe_buffer_size=100):
         self.pe_size = PE_size
         self.pe_numX = PE_numX
         self.pe_numY = PE_numY

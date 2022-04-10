@@ -1,23 +1,65 @@
 from accelerator import Accelerator
 from network import Network
 import global_var
+import random
+
+class Population:
+    def __init__(self, acc = Accelerator(), net = Network(), fit = 0, r_fit=0, c_fit=0):
+        self.acc = acc
+        self.net = net
+        self.fit = fit
+        self.r_fit = r_fit
+        self.c_fit = c_fit
+
 class GeneticAlgorithm:
-    def __init__(self, acc, net, per_num, iter_num):
+    def __init__(self, acc, net, pop_num, iter_num, pf):
         self.accelerator = acc
         self.network = net
-        self.permutation_num = per_num
-        self.iteration_num = iter_num
+        self.pop_num = pop_num
+        self.iter_num = iter_num
+        self.p_factor = pf      # punish factor
+        self.population = [Population() for i in range(self.pop_num)]
+        self.best_pop = self.population[0]
+
+    def initiate(self):
+        for p in self.population:
+            print(p.acc.topo)
+            # hardware init
+            p.acc.pe_num = random.randint(1, 10)
+            p.acc.pe_numX = random.randint(1, 5)
+            p.acc.pe_numY = random.randint(1, 5)
+            p.acc.global_buf_size = random.random(10, 100)
+            for i in p.acc.topo:
+                i = random.randint(0,2)
+            print(p.acc.topo)
+            # software init
+            # GG
+
+    def keep_the_best(self):
+        max_fitness = 0
+        for p in self.population:
+            cur_fitness = self.evaluate(p.acc, p.net)
+            if max_fitness < cur_fitness:
+                max_fitness = cur_fitness
+                self.best_pop = p
+
+    def select(self):
+        return
 
     def run(self):
         fit = [0 for i in range(self.permutation_num)]
-
         return
 
+    def cross(self):
+        return
 
-    def cal(self, h, net):
+    def evaluate(self, h, net):
         # objective function
         t_comm = 0
         t_comp = 0
+
+        # 乘法因子
+        M = 0
 
         # constraints
         G_NUMBER = 10000
@@ -62,4 +104,8 @@ class GeneticAlgorithm:
                 energy += global_var.e_mac[h.quantization[j]] * mac_count[j]
             t_comp += max_time
 
-        return 1/(t_comm+t_comp)
+        if energy > energy_thres or area > area_thres or accuracy < accuracy_thres:
+            M = (energy-energy_thres)*(area-area_thres)*(accuracy-accuracy_thres)
+
+        # TODO: return fitness function
+        return 1/(t_comm+t_comp) * self.p_factor * M

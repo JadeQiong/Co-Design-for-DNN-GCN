@@ -1,6 +1,6 @@
 import numpy as np
 class Network:
-    def __init__(self, layers):
+    def __init__(self, layers = [("cov", 20, 20),("cov", 15, 15)]):
         self.num_Layers = len(layers)
         self.layers = layers
         self.layer_connection = np.zeros((self.num_Layers, self.num_Layers))
