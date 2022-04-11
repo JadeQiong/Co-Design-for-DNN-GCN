@@ -1,5 +1,6 @@
 from accelerator import Accelerator
 from network import Network
+import genetic_algorithm_var
 import global_var
 import random
 
@@ -14,6 +15,7 @@ class Population:
 
 
 class GeneticAlgorithm:
+
     def __init__(self, pop_num=10, iter_num=10, gen_num=10, pf=1):
         self.pop_num = pop_num
         self.iter_num = iter_num
@@ -27,16 +29,20 @@ class GeneticAlgorithm:
         self.initiate()
         self.evaluate()
         self.keep_the_best()
-        self.crossover()
+        # self.crossover()
+        for attr in genetic_algorithm_var.crossover_rates.keys():
+            self.crossover(attr, genetic_algorithm_var.crossover_rates[attr])
         gen = 0
         for cur_iter in range(0, self.iter_num):
             while gen < self.gen_num:
                 gen += 1
                 self.select()
-                self.crossover()
+                for attr in genetic_algorithm_var.crossover_rates.keys():
+                    self.crossover(attr, genetic_algorithm_var.crossover_rates[attr])
                 self.mutate()
                 self.evaluate()
-
+                # self.keep_the_best()
+                self.elitist()
         return
 
     def initiate(self):
@@ -83,7 +89,41 @@ class GeneticAlgorithm:
         self.population = self.next_population
         return
 
-    def crossover(self):
+    def crossover(self, attr_type, crossover_rate = 0.6):
+        fir = sec = -1
+        for i in range(0, len(self.population)):
+            if crossover_rate > random.uniform(0, 1):
+                if fir != -1:
+                    self.xover(attr_type, fir, i)
+                    fir = -1
+                else:
+                    fir = i
+        return
+
+    def xover(self, attr_type, i, j):
+        if attr_type == "pe_num":
+            self.population[i].acc.pe_num, self.population[j].acc.pe_num = \
+                self.population[j].acc.pe_num, self.population[i].acc.pe_num
+        elif attr_type == "pe_size":
+            self.population[i].acc.pe_size, self.population[j].acc.pe_size = \
+                self.population[j].acc.pe_size, self.population[i].acc.pe_size
+            pass
+        elif attr_type == "pe_numX":
+            self.population[i].acc.pe_numX, self.population[j].acc.pe_numX = \
+                self.population[j].acc.pe_numX, self.population[i].acc.pe_numX
+            pass
+        elif attr_type == "pe_numY":
+            self.population[i].acc.pe_numY, self.population[j].acc.pe_numY = \
+                self.population[j].acc.pe_numY, self.population[i].acc.pe_numY
+            pass
+        elif attr_type == "global_buffer_size":
+            self.population[i].acc.global_buf_size, self.population[j].acc.global_buf_size = \
+                self.population[j].acc.global_buf_size, self.population[i].acc.global_buf_size
+            pass
+        elif attr_type == "topo":
+            # self.population[i].acc.pe_num, self.population[j].acc.pe_num = \
+            #     self.population[j].acc.pe_num, self.population[i].acc.pe_num
+            pass
         return
 
     def mutate(self):
