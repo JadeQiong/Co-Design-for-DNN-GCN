@@ -90,6 +90,20 @@ class GeneticAlgorithm:
         return
 
     def elitist(self):
+        best = worst = self.population[0]
+        worst_id = 0
+        for i in range(0, len(self.population)):
+            p = self.population[i]
+            if best.fit < p.fit:
+                best = p
+            if worst.fit > p.fit:
+                worst = p
+                worst_id = i
+
+        if best.fit > self.best_pop.fit:
+            self.best_pop = best
+        else:
+            self.population[worst_id] = self.best_pop
         return
 
     def evaluate(self):
