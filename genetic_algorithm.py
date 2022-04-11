@@ -3,23 +3,41 @@ from network import Network
 import global_var
 import random
 
+
 class Population:
-    def __init__(self, acc = Accelerator(), net = Network(), fit = 0, r_fit=0, c_fit=0):
+    def __init__(self, acc=Accelerator(), net=Network(), fit = 0, r_fit=0, c_fit=0):
         self.acc = acc
         self.net = net
         self.fit = fit
         self.r_fit = r_fit
         self.c_fit = c_fit
 
+
 class GeneticAlgorithm:
-    def __init__(self, acc, net, pop_num, iter_num, pf):
-        self.accelerator = acc
-        self.network = net
+    def __init__(self, pop_num=10, iter_num=10, gen_num=10, pf=1):
         self.pop_num = pop_num
         self.iter_num = iter_num
+        self.gen_num = gen_num
         self.p_factor = pf      # punish factor
         self.population = [Population() for i in range(self.pop_num)]
+        self.next_population = [Population() for i in range(self.pop_num)]
         self.best_pop = self.population[0]
+
+    def run(self):
+        self.initiate()
+        self.evaluate()
+        self.keep_the_best()
+        self.crossover()
+        gen = 0
+        for cur_iter in range(0, self.iter_num):
+            while gen < self.gen_num:
+                gen += 1
+                self.select()
+                self.crossover()
+                self.mutate()
+                self.evaluate()
+
+        return
 
     def initiate(self):
         for p in self.population:
@@ -28,7 +46,7 @@ class GeneticAlgorithm:
             p.acc.pe_num = random.randint(1, 10)
             p.acc.pe_numX = random.randint(1, 5)
             p.acc.pe_numY = random.randint(1, 5)
-            p.acc.global_buf_size = random.random(10, 100)
+            p.acc.global_buf_size = random.randint(10, 100)
             for i in p.acc.topo:
                 i = random.randint(0,2)
             print(p.acc.topo)
@@ -36,24 +54,49 @@ class GeneticAlgorithm:
             # GG
 
     def keep_the_best(self):
-        max_fitness = 0
         for p in self.population:
-            cur_fitness = self.evaluate(p.acc, p.net)
-            if max_fitness < cur_fitness:
-                max_fitness = cur_fitness
+            if self.best_pop.fit < p.fit:
                 self.best_pop = p
 
     def select(self):
+        fit_sum = 0
+        # 轮盘赌
+        for p in self.population:
+            fit_sum += p.fit
+        for p in self.population:
+            p.r_fit = p.fit/fit_sum
+        for i in range(0, len(self.population)):
+            if i == 0:
+                self.population[i].c_fit = self.population[i].fit
+            else:
+                self.population[i].c_fit = self.population[i-1].c_fit + self.population[i].fit
+        # generate random probability
+        for i in range(0, len(self.population)):
+            probability = random.uniform(0, 1)
+            if probability < self.population[0].c_fit:
+                self.next_population[i] = self.population[i]
+            else:
+                for j in range(0, len(self.population)-1):
+                    if self.population[j].c_fit <= probability < self.population[j + 1].c_fit:
+                        self.next_population[i] = self.population[j+1]
+        # update population
+        self.population = self.next_population
         return
 
-    def run(self):
-        fit = [0 for i in range(self.permutation_num)]
+    def crossover(self):
         return
 
-    def cross(self):
+    def mutate(self):
         return
 
-    def evaluate(self, h, net):
+    def elitist(self):
+        return
+
+    def evaluate(self):
+        for p in self.population:
+            p.fit = self.cal(p.acc, p.net)
+
+    def cal(self, h, net):
         # objective function
         t_comm = 0
         t_comp = 0
@@ -109,3 +152,6 @@ class GeneticAlgorithm:
 
         # TODO: return fitness function
         return 1/(t_comm+t_comp) * self.p_factor * M
+
+ga = GeneticAlgorithm()
+ga.run()
