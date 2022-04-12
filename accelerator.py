@@ -1,7 +1,7 @@
 import numpy as np
 
 class Accelerator(object):
-    def __init__(self, PE_size = 10, PE_numX = 4, PE_numY=4, global_buf_size=100, pe_buffer_size=100):
+    def __init__(self, PE_size = 10, PE_numX = 4, PE_numY=4, global_buf_size=100, topo=np.ones((0,0)), pe_buffer_size=100):
         self.pe_size = PE_size
         self.pe_numX = PE_numX
         self.pe_numY = PE_numY
@@ -11,16 +11,20 @@ class Accelerator(object):
         self.pe_num = PE_numX*PE_numY
         # represent topology as a graph
         self.topo = np.zeros((self.pe_num, self.pe_num))
-        for i in range(0, PE_numX-1):
-            for j in range(0, PE_numY):
-                id = i*PE_numY+j
-                self.topo[id][id+PE_numY] = 1
-                self.topo[id+PE_numY][id] = 1
-        for j in range(0, PE_numY-1):
-            for i in range(0, PE_numX):
-                id = i*PE_numY+j
-                self.topo[id][id+1] = 1
-                self.topo[id+1][id] = 1
+        if topo.size != 0:
+            self.topo = topo
+        else:
+            # print("init topo")
+            for i in range(0, PE_numX - 1):
+                for j in range(0, PE_numY):
+                    id = i * PE_numY + j
+                    self.topo[id][id + PE_numY] = 1
+                    self.topo[id + PE_numY][id] = 1
+            for j in range(0, PE_numY - 1):
+                for i in range(0, PE_numX):
+                    id = i * PE_numY + j
+                    self.topo[id][id + 1] = 1
+                    self.topo[id + 1][id] = 1
         # set quantization values
         for i in range(0, self.pe_num):
             self.quantization.append('64b')

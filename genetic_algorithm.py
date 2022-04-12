@@ -6,9 +6,9 @@ import random
 
 
 class Population:
-    def __init__(self, acc=Accelerator(), net=Network(), fit = 0, r_fit=0, c_fit=0):
-        self.acc = acc
-        self.net = net
+    def __init__(self, acc=Accelerator(), net=Network(), fit=0, r_fit=0, c_fit=0):
+        self.acc_gene = [acc.pe_num, acc.pe_size, acc.pe_numX, acc.pe_numY, acc.global_buf_size, acc.topo]
+        self.net_gene = [net.num_Layers, net.layers, net.layer_connection]
         self.fit = fit
         self.r_fit = r_fit
         self.c_fit = c_fit
@@ -43,19 +43,32 @@ class GeneticAlgorithm:
                 self.evaluate()
                 # self.keep_the_best()
                 self.elitist()
+                print("best in each iteration----------------")
+                print(self.best_pop.acc_gene)
+                print(self.best_pop.net_gene)
         return
 
     def initiate(self):
         for p in self.population:
-            print(p.acc.topo)
             # hardware init
-            p.acc.pe_num = random.randint(1, 10)
-            p.acc.pe_numX = random.randint(1, 5)
-            p.acc.pe_numY = random.randint(1, 5)
-            p.acc.global_buf_size = random.randint(10, 100)
-            for i in p.acc.topo:
-                i = random.randint(0,2)
-            print(p.acc.topo)
+            for j in range(0, len(genetic_algorithm_var.acc_gene_type)):
+                gene = genetic_algorithm_var.acc_gene_type[j]
+                if gene == "pe_num":
+                    p.acc_gene[j] = random.randint(1, 10)
+                elif gene == "pe_size":
+                    p.acc_gene[j] = random.randint(1, 10)
+                elif gene == "pe_numX":
+                    p.acc_gene[j] = random.randint(1, 5)
+                elif gene == "pe_numY":
+                    p.acc_gene[j] = random.randint(1, 5)
+                elif gene == "global_buffer_size":
+                    p.acc_gene[j] = random.randint(1, 5)
+                elif gene == "topo":
+                    pass
+                    # print(p.acc_gene[j])
+                    # for i in p.acc_gene[j]:
+                    #     i = random.randint(0, 2)
+            # print(p.acc.topo)
             # software init
             # GG
 
@@ -101,32 +114,34 @@ class GeneticAlgorithm:
         return
 
     def xover(self, attr_type, i, j):
-        if attr_type == "pe_num":
-            self.population[i].acc.pe_num, self.population[j].acc.pe_num = \
-                self.population[j].acc.pe_num, self.population[i].acc.pe_num
-        elif attr_type == "pe_size":
-            self.population[i].acc.pe_size, self.population[j].acc.pe_size = \
-                self.population[j].acc.pe_size, self.population[i].acc.pe_size
-            pass
-        elif attr_type == "pe_numX":
-            self.population[i].acc.pe_numX, self.population[j].acc.pe_numX = \
-                self.population[j].acc.pe_numX, self.population[i].acc.pe_numX
-            pass
-        elif attr_type == "pe_numY":
-            self.population[i].acc.pe_numY, self.population[j].acc.pe_numY = \
-                self.population[j].acc.pe_numY, self.population[i].acc.pe_numY
-            pass
-        elif attr_type == "global_buffer_size":
-            self.population[i].acc.global_buf_size, self.population[j].acc.global_buf_size = \
-                self.population[j].acc.global_buf_size, self.population[i].acc.global_buf_size
-            pass
-        elif attr_type == "topo":
+        # if attr_type == "pe_num":
+        #     self.population[i].acc.pe_num, self.population[j].acc.pe_num = \
+        #         self.population[j].acc.pe_num, self.population[i].acc.pe_num
+        # elif attr_type == "pe_size":
+        #     self.population[i].acc.pe_size, self.population[j].acc.pe_size = \
+        #         self.population[j].acc.pe_size, self.population[i].acc.pe_size
+        #     pass
+        # elif attr_type == "pe_numX":
+        #     self.population[i].acc.pe_numX, self.population[j].acc.pe_numX = \
+        #         self.population[j].acc.pe_numX, self.population[i].acc.pe_numX
+        #     pass
+        # elif attr_type == "pe_numY":
+        #     self.population[i].acc.pe_numY, self.population[j].acc.pe_numY = \
+        #         self.population[j].acc.pe_numY, self.population[i].acc.pe_numY
+        #     pass
+        # elif attr_type == "global_buffer_size":
+        #     self.population[i].acc.global_buf_size, self.population[j].acc.global_buf_size = \
+        #         self.population[j].acc.global_buf_size, self.population[i].acc.global_buf_size
+        #     pass
+        # elif attr_type == "topo":
             # self.population[i].acc.pe_num, self.population[j].acc.pe_num = \
             #     self.population[j].acc.pe_num, self.population[i].acc.pe_num
-            pass
+            # pass
         return
 
     def mutate(self):
+        for p in self.population:
+            pass
         return
 
     def elitist(self):
@@ -148,7 +163,9 @@ class GeneticAlgorithm:
 
     def evaluate(self):
         for p in self.population:
-            p.fit = self.cal(p.acc, p.net)
+            acc = Accelerator(p.acc_gene[1], p.acc_gene[2], p.acc_gene[3], p.acc_gene[4])
+            net = Network()
+            p.fit = self.cal(acc, net)
 
     def cal(self, h, net):
         # objective function
