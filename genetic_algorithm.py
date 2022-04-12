@@ -14,6 +14,42 @@ class Population:
         self.c_fit = c_fit
 
 
+def encode_int(num):
+    s = []
+    while num:
+        s.append(num % 2)
+        num = num/2
+    for i in range(0, genetic_algorithm_var.int_code_len-len(s)):
+        s.append(0)
+    return s
+
+
+def decode_int(s):
+    num = 0
+    for i in range(0, len(s)):
+        if s[i] == 1:
+            num += pow(2, i)
+    return num if num != 0 else 1
+
+
+def encode_float(num):
+    return
+
+
+def decode_float(s):
+    return
+
+
+def encode_topo(topo):
+    s = []
+    return s
+
+
+def decode_topo(s):
+    topo = 1
+    return topo
+
+
 class GeneticAlgorithm:
 
     def __init__(self, pop_num=10, iter_num=10, gen_num=10, pf=1):
@@ -30,15 +66,17 @@ class GeneticAlgorithm:
         self.evaluate()
         self.keep_the_best()
         # self.crossover()
-        for attr in genetic_algorithm_var.crossover_rates.keys():
-            self.crossover(attr, genetic_algorithm_var.crossover_rates[attr])
+        for attr_id in range(0, len(genetic_algorithm_var.acc_gene_type)):
+            attr = genetic_algorithm_var.acc_gene_type[attr_id]
+            self.crossover(attr_id, attr)
         gen = 0
         for cur_iter in range(0, self.iter_num):
             while gen < self.gen_num:
                 gen += 1
                 self.select()
-                for attr in genetic_algorithm_var.crossover_rates.keys():
-                    self.crossover(attr, genetic_algorithm_var.crossover_rates[attr])
+                for attr_id in range(0, len(genetic_algorithm_var.acc_gene_type)):
+                    attr = genetic_algorithm_var.acc_gene_type[attr_id]
+                    self.crossover(attr_id, attr)
                 self.mutate()
                 self.evaluate()
                 # self.keep_the_best()
@@ -102,18 +140,31 @@ class GeneticAlgorithm:
         self.population = self.next_population
         return
 
-    def crossover(self, attr_type, crossover_rate = 0.6):
+    def crossover(self, attr_id, attr):
         fir = sec = -1
         for i in range(0, len(self.population)):
-            if crossover_rate > random.uniform(0, 1):
+            if genetic_algorithm_var.crossover_rates[attr] > random.uniform(0, 1):
                 if fir != -1:
-                    self.xover(attr_type, fir, i)
+                    self.xover(attr_id, attr, fir, i)
                     fir = -1
                 else:
                     fir = i
         return
 
-    def xover(self, attr_type, i, j):
+    def xover(self, attr_id, attr,  i, j):
+        if attr != "topo":
+            si = encode_int(self.population[i].acc_gene[attr_id])
+            sj = encode_int(self.population[j].acc_gene[attr_id])
+            new_si = si
+            new_sj = sj
+            for k in range(0, 2):
+                tmp = new_si[k]
+                new_si[k] = new_sj[k]
+                new_sj[k] = tmp
+            self.next_population[i].acc_gene[attr_id] = decode_int(new_si)
+            self.next_population[j].acc_gene[attr_id] = decode_int(new_sj)
+        else:
+            pass
         # if attr_type == "pe_num":
         #     self.population[i].acc.pe_num, self.population[j].acc.pe_num = \
         #         self.population[j].acc.pe_num, self.population[i].acc.pe_num
