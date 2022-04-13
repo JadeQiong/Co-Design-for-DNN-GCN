@@ -3,6 +3,7 @@ from network import Network
 import genetic_algorithm_var
 import global_var
 import random
+import numpy as np
 
 #遗传算法搜索对象：pe数量，pe阵列的行和列，拓扑结构
 class Population:
@@ -47,17 +48,58 @@ def decode_float(s):
 
 def encode_topo(topo):
     s = []
+    x = len(topo)
+    max_len = genetic_algorithm_var.topo_code_len
+    topo_padding = np.zeros((max_len, max_len))
+    for i in range(0, max_len):
+        for j in range(0, max_len):
+            if 0 <= i < x and 0 <= j < x:
+                topo_padding[i][j] = topo[i][j]
+    # 展开
+    for i in range(0, max_len):
+        for j in range(i+1, max_len):
+            s.append(topo_padding[i][j])
     return s
 
 
-def decode_topo(s):
-    topo = 1
+def decode_topo(s, x):
+    max_len = genetic_algorithm_var.topo_code_len
+    topo_padding = np.zeros((max_len, max_len))
+    id = 0
+    for i in range(0, max_len):
+        for j in range(i+1, max_len):
+            topo_padding[j][i] = topo_padding[i][j] = s[id]
+            id += 1
+
+    topo = np.zeros((x, x))
+    for i in range(0, x):
+        for j in range(0, x):
+            if 0 <= i < x and 0 <= j < x:
+                topo[i][j] = topo_padding[i][j]
+            # 1, 2, ... row_len
     return topo
+
+
+def test_topo_encoding():
+    for i in range(200):
+        m = random.randint(1, 10)
+        a = np.zeros((m, m))
+        for ii in range(0, m):
+            for jj in range(ii+1, m):
+                p = random.random()
+                if ii != jj:
+                    a[ii][jj] = a[jj][ii] = 1 if p < 0.5 else 0
+        if decode_topo(encode_topo(a), m).all() != a.all():
+            print(a)
+            print(encode_topo(a))
+            print(decode_topo(encode_topo(a), m))
+            print("--------------")
+            print("G")
 
 
 def test_int_encoding():
     for i in range(100):
-        if (decode_int(encode_int(i)) != i):
+        if decode_int(encode_int(i)) != i:
             print(i)
             print(encode_int(i))
             print(decode_int(encode_int(i)))
@@ -74,6 +116,30 @@ class GeneticAlgorithm:
         self.next_population = [Population() for i in range(self.pop_num)]#下一代种群
         self.best_pop = self.population[0]
 
+    def run(self):
+        self.initiate()
+        self.evaluate()
+        self.keep_the_best()
+        # self.crossover()
+        for attr_id in range(0, len(genetic_algorithm_var.acc_gene_type)):
+            attr = genetic_algorithm_var.acc_gene_type[attr_id]
+            self.crossover(attr_id, attr)
+        gen = 0
+        for cur_iter in range(0, self.iter_num):
+            while gen < self.gen_num:
+                gen += 1
+                self.select()
+                for attr_id in range(0, len(genetic_algorithm_var.acc_gene_type)):
+                    attr = genetic_algorithm_var.acc_gene_type[attr_id]
+                    self.crossover(attr_id, attr)
+                self.mutate()
+                self.evaluate()
+                # self.keep_the_best()
+                self.elitist()
+                print("-----------------best in each iteration----------------")
+                print(self.best_pop.acc_gene[0:4])
+                print(self.best_pop.net_gene[0:4])
+        return
 
     def initiate(self):
         for p in self.population:
@@ -293,6 +359,8 @@ class GeneticAlgorithm:
                 print(self.best_pop.net_gene[0:4])
         return
 
-#test_int_encoding()
+
+# test_int_encoding()
+# test_topo_encoding()
 ga = GeneticAlgorithm()
 ga.run()
