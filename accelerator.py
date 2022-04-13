@@ -1,14 +1,14 @@
 import numpy as np
 
 class Accelerator(object):
-    def __init__(self, PE_size = 10, PE_numX = 4, PE_numY=4, global_buf_size=100, topo=np.ones((0,0)), pe_buffer_size=100):
+    def __init__(self, PE_numX = 4, PE_numY=4, PE_size = 10, global_buf_size=100, topo=np.ones((0,0)), pe_buffer_size=100):
         self.pe_size = PE_size
         self.pe_numX = PE_numX
         self.pe_numY = PE_numY
         self.global_buf_size = global_buf_size
         self.pe_buf_size = pe_buffer_size
         self.quantization = []
-        self.pe_num = PE_numX*PE_numY
+        self.pe_num = PE_numX * PE_numY
         # represent topology as a graph
         self.topo = np.zeros((self.pe_num, self.pe_num))
         if topo.size != 0:
@@ -40,6 +40,8 @@ class Accelerator(object):
         maxn = 1e5
         num = self.pe_num
         dis = np.empty([num, num], dtype=int)
+        if num != len(self.topo):
+            print(str(num) + "  GGGGGGGGGGGGGGGG " + str(len(self.topo)))
         for i in range(0, num):
             for j in range(0, num):
                 dis[i][j] = 1 if self.topo[i][j] == 1 else maxn

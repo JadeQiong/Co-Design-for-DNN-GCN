@@ -1,6 +1,6 @@
 from accelerator import Accelerator
 from network import Network
-import genetic_algorithm_var
+import ga_configs
 import global_var
 import random
 import copy
@@ -11,7 +11,7 @@ import numpy as np
 
 class Population:
     def __init__(self, acc=Accelerator(), net=Network(), fit=0, r_fit=0, c_fit=0):
-        self.acc_gene = [acc.pe_num, acc.pe_size, acc.pe_numX, acc.pe_numY, acc.global_buf_size, acc.topo]
+        self.acc_gene = [acc.pe_numX, acc.pe_numY, acc.pe_size, acc.global_buf_size, acc.topo]
         self.net_gene = [net.num_Layers, net.layers, net.layer_connection]
         self.fit = fit  # 适应度
         self.r_fit = r_fit   # 轮盘适应度
@@ -24,7 +24,7 @@ def encode_int(num):
     while int(num) != 0:
         s.append(num % 2)
         num = int(num/2)
-    dif = genetic_algorithm_var.int_code_len-len(s)
+    dif = ga_configs.int_code_len - len(s)
     for i in range(0, dif):
         s.append(0)
     # 把这个reverse先注释掉了
@@ -62,7 +62,7 @@ def random_topo(m):
 def encode_topo(topo):
     s = []
     x = len(topo)
-    max_len = genetic_algorithm_var.topo_code_len
+    max_len = ga_configs.topo_code_len
     topo_padding = np.zeros((max_len, max_len))
     for i in range(0, max_len):
         for j in range(0, max_len):
@@ -70,26 +70,20 @@ def encode_topo(topo):
                 topo_padding[i][j] = topo[i][j]
     # 展开
     for i in range(0, max_len):
-        for j in range(i+1, max_len):
+        for j in range(i + 1, max_len):
             s.append(topo_padding[i][j])
     return s
 
 
 def decode_topo(s, x):
-    max_len = genetic_algorithm_var.topo_code_len
+    max_len = ga_configs.topo_code_len
     topo_padding = np.zeros((max_len, max_len))
     id = 0
     for i in range(0, max_len):
         for j in range(i+1, max_len):
             topo_padding[j][i] = topo_padding[i][j] = s[id]
             id += 1
-    topo = np.zeros((x, x))
-    for i in range(0, x):
-        for j in range(0, x):
-            if 0 <= i < x and 0 <= j < x:
-                topo[i][j] = topo_padding[i][j]
-            # 1, 2, ... row_len
-    return topo
+    return topo_padding[0:x, 0:x]
 
 
 def test_topo_encoding():
@@ -132,34 +126,29 @@ class GeneticAlgorithm:
         self.iter_num = iter_num  # 迭代次数
         self.gen_num = gen_num   # 迭代一次的时候有多少代种群产生
         self.p_factor = pf      # punish factor
-        self.population = [Population() for i in range(self.pop_num)]  #  当前种群
+        self.population = [Population() for i in range(self.pop_num)]    # 当前种群
         self.next_population = [Population() for i in range(self.pop_num)]   # 下一代种群
         self.best_pop = self.population[0]
 
     def initiate(self):
         for p in self.population:
             # hardware init
-            for j in range(1, len(genetic_algorithm_var.acc_gene_type)):
-                gene = genetic_algorithm_var.acc_gene_type[j]
-                # if gene == "pe_num":
-                #     p.acc_gene[j] = random.randint(1, )
-                if gene == "pe_size":
-                    p.acc_gene[j] = random.randint(1, 5)
-                elif gene == "pe_numX":
+            for j in range(0, len(ga_configs.acc_gene_type)):
+                gene = ga_configs.acc_gene_type[j]
+                if gene == "pe_numX":
                     p.acc_gene[j] = random.randint(1, 5)
                 elif gene == "pe_numY":
+                    p.acc_gene[j] = random.randint(1, 5)
+                elif gene == "pe_size":
                     p.acc_gene[j] = random.randint(1, 5)
                 elif gene == "global_buffer_size":
                     p.acc_gene[j] = random.randint(1, 10)
                 elif gene == "topo":
                     # num = x*y
-                    p.acc_gene[0] = p.acc_gene[2] * p.acc_gene[3]
-                    p.acc_gene[j] = random_topo(p.acc_gene[2] * p.acc_gene[3])
-                    pass
-
-
-            # print(p.acc.topo)
+                    pe_num = p.acc_gene[0] * p.acc_gene[1]
+                    p.acc_gene[j] = random_topo(pe_num)
             # software init
+
             # GG
         return
 
@@ -199,13 +188,13 @@ class GeneticAlgorithm:
         return
 
     # 选一对个体杂交
-    def crossover(self, attr_id, attr):
-        fir = sec = -1
+    def crossover(self, attr_id):
+        fir = -1
+        attr = ga_configs.acc_gene_type[attr_id]
         for i in range(0, len(self.population)):
             p = random.uniform(0, 1)
-            if genetic_algorithm_var.crossover_rates[attr] > p:
+            if ga_configs.crossover_rates[attr] > p:
                 if fir != -1:
-                    # print("Y, "+str(p) + " < "+ str(genetic_algorithm_var.crossover_rates[attr]))
                     self.xover(attr_id, attr, fir, i)
                     fir = -1
                 else:
@@ -214,8 +203,6 @@ class GeneticAlgorithm:
 
     # 双亲杂交产生新的个体
     def xover(self, attr_id, attr,  i, j):
-        si = []
-        sj = []
         if attr != "topo":
             si = encode_int(self.population[i].acc_gene[attr_id])
             sj = encode_int(self.population[j].acc_gene[attr_id])
@@ -238,21 +225,18 @@ class GeneticAlgorithm:
             # self.next_population[i].acc_gene[attr_id] = max(1, decode_int(new_si))
             # self.next_population[j].acc_gene[attr_id] = max(1, decode_int(new_sj))
         else:
-            # acc_gene[0] is pe_num
-            nxt_numi = self.next_population[i].acc_gene[0]
-            nxt_numj = self.next_population[j].acc_gene[0]
-            self.next_population[i].acc_gene[attr_id] = decode_topo(new_si, nxt_numi)
-            self.next_population[j].acc_gene[attr_id] = decode_topo(new_sj, nxt_numj)
+            pe_numi = self.next_population[i].acc_gene[0] * self.next_population[i].acc_gene[1]
+            pe_numj = self.next_population[j].acc_gene[0] * self.next_population[j].acc_gene[1]
+            self.next_population[i].acc_gene[attr_id] = decode_topo(new_si, pe_numi)
+            self.next_population[j].acc_gene[attr_id] = decode_topo(new_sj, pe_numj)
 
-        # print(" -------parents------- ")
-        # print(self.population[i].acc_gene[0:4])
-        # print(self.population[j].acc_gene[0:4])
-        # print(" ------children----- ")
-        # print(self.next_population[i].acc_gene[0:4])
-        # print(self.next_population[j].acc_gene[0:4])
-        # print(" --------------------------------- ")
-        self.next_population[i].acc_gene[0] = self.next_population[i].acc_gene[2] * self.next_population[i].acc_gene[3]
-        self.next_population[j].acc_gene[0] = self.next_population[j].acc_gene[2] * self.next_population[j].acc_gene[3]
+        print(" -------parents------- ")
+        print(self.population[i].acc_gene[0:3])
+        print(self.population[j].acc_gene[0:3])
+        print(" ------children----- ")
+        print(self.next_population[i].acc_gene[0:3])
+        print(self.next_population[j].acc_gene[0:3])
+        print(" --------------------------------- ")
 
         return
 
@@ -262,15 +246,27 @@ class GeneticAlgorithm:
             probability = []
             for i in range(0, len(p.acc_gene)):
                 probability.append(random.random())
-            for i in range(1, len(p.acc_gene)):
-                attr = genetic_algorithm_var.acc_gene_type[i]
-                if probability[i] < genetic_algorithm_var.mutate_rates[attr]:
-                    if attr == "pe_size" or attr == "pe_numX" or attr == "pe_numY":
+            for i in range(0, len(p.acc_gene)):
+                attr = ga_configs.acc_gene_type[i]
+                if probability[i] < ga_configs.mutate_rates[attr]:
+                    if attr == "pe_size":
                         p.acc_gene[i] = random.randint(1, 5)
                     elif attr == "global_pe_buffer":
                         p.acc_gene[i] = random.randint(1, 10)
                     elif attr == "topo":
-                        p.acc_gene[i] = random_topo(p.acc_gene[2] * p.acc_gene[3])
+                        pe_num = p.acc_gene[0] * p.acc_gene[1]
+                        for ii in range(0, pe_num):
+                            for jj in range(pe_num):
+                                pp = random.random()
+                                if pp<ga_configs.mutate_rates[attr]:
+                                   p.acc_gene[i][ii][jj] = 1 - p.acc_gene[i][ii][jj]
+                        #p.acc_gene[i] = random_topo(pe_num)
+
+            if p.acc_gene[0] * p.acc_gene[1] != len(p.acc_gene[4]):
+                print(p.acc_gene[0])
+                print(p.acc_gene[1])
+                print(len(p.acc_gene[4]))
+                print("G了，如果看到这条需要提醒debug")
         return
 
     def elitist(self):
@@ -292,7 +288,10 @@ class GeneticAlgorithm:
 
     def evaluate(self):
         for p in self.population:
-            acc = Accelerator(p.acc_gene[1], p.acc_gene[2], p.acc_gene[3], p.acc_gene[4])
+            if p.acc_gene[0] * p.acc_gene[1] != len(p.acc_gene[4]):
+                print("???????????????")
+                continue
+            acc = Accelerator(p.acc_gene[0], p.acc_gene[1], p.acc_gene[2], p.acc_gene[3], p.acc_gene[4])
             net = Network()
             p.fit = self.cal(acc, net)
 
@@ -357,9 +356,8 @@ class GeneticAlgorithm:
         self.initiate()
         self.evaluate()
         self.keep_the_best()
-        for attr_id in range(0, len(genetic_algorithm_var.acc_gene_type)):
-            attr = genetic_algorithm_var.acc_gene_type[attr_id]
-            self.crossover(attr_id, attr)
+        for attr_id in range(0, len(ga_configs.acc_gene_type)):
+            self.crossover(attr_id)
 
         gen = 0
         for cur_iter in range(0, self.iter_num):
@@ -367,9 +365,8 @@ class GeneticAlgorithm:
                 gen += 1
                 self.select()
                 # 对每个基因型进行交叉杂交
-                for attr_id in range(1, len(genetic_algorithm_var.acc_gene_type)):
-                    attr = genetic_algorithm_var.acc_gene_type[attr_id]
-                    self.crossover(attr_id, attr)
+                for attr_id in range(1, len(ga_configs.acc_gene_type)):
+                    self.crossover(attr_id)
                 self.mutate()
                 self.evaluate()
                 self.keep_the_best()
@@ -383,6 +380,6 @@ class GeneticAlgorithm:
 
 # test_int_encoding()
 # if test_topo_encoding() == False:
-#   print("G")
+#     print("G")
 ga = GeneticAlgorithm()
 ga.run()
