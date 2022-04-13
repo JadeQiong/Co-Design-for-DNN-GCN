@@ -4,16 +4,16 @@ import genetic_algorithm_var
 import global_var
 import random
 
-
+#遗传算法搜索对象：pe数量，pe阵列的行和列，拓扑结构
 class Population:
     def __init__(self, acc=Accelerator(), net=Network(), fit=0, r_fit=0, c_fit=0):
-        self.acc_gene = [acc.pe_num, acc.pe_size, acc.pe_numX, acc.pe_numY, acc.global_buf_size, acc.topo]
+        self.acc_gene = [acc.pe_num, acc.pe_size, acc.pe_numX, acc.pe_numY, acc.global_buf_size, acc.topo] #
         self.net_gene = [net.num_Layers, net.layers, net.layer_connection]
-        self.fit = fit
-        self.r_fit = r_fit
+        self.fit = fit #适应度
+        self.r_fit = r_fit#轮盘适应度
         self.c_fit = c_fit
 
-
+#对pe数量编码
 def encode_int(num):
     s = []
     while int(num) != 0:
@@ -22,16 +22,20 @@ def encode_int(num):
     dif = genetic_algorithm_var.int_code_len-len(s)
     for i in range(0, dif):
         s.append(0)
+    s.reverse()
+    #print(s)
     return s
 
 
 def decode_int(s):
     num = 0
+    s.reverse()
     for i in range(0, len(s)):
         if s[i] == 1:
             num += pow(2, i)
+    #print(num)
     return num
-
+decode_int([0,0,0,1,0])
 
 def encode_float(num):
     return
@@ -62,38 +66,14 @@ def test_int_encoding():
 class GeneticAlgorithm:
 
     def __init__(self, pop_num=10, iter_num=10, gen_num=10, pf=1):
-        self.pop_num = pop_num
-        self.iter_num = iter_num
-        self.gen_num = gen_num
+        self.pop_num = pop_num#种群数量
+        self.iter_num = iter_num#迭代次数
+        self.gen_num = gen_num#迭代一次的时候有多少代种群产生
         self.p_factor = pf      # punish factor
-        self.population = [Population() for i in range(self.pop_num)]
-        self.next_population = [Population() for i in range(self.pop_num)]
+        self.population = [Population() for i in range(self.pop_num)]#当前种群
+        self.next_population = [Population() for i in range(self.pop_num)]#下一代种群
         self.best_pop = self.population[0]
 
-    def run(self):
-        self.initiate()
-        self.evaluate()
-        self.keep_the_best()
-        # self.crossover()
-        for attr_id in range(0, len(genetic_algorithm_var.acc_gene_type)):
-            attr = genetic_algorithm_var.acc_gene_type[attr_id]
-            self.crossover(attr_id, attr)
-        gen = 0
-        for cur_iter in range(0, self.iter_num):
-            while gen < self.gen_num:
-                gen += 1
-                self.select()
-                for attr_id in range(0, len(genetic_algorithm_var.acc_gene_type)):
-                    attr = genetic_algorithm_var.acc_gene_type[attr_id]
-                    self.crossover(attr_id, attr)
-                self.mutate()
-                self.evaluate()
-                # self.keep_the_best()
-                self.elitist()
-                print("best in each iteration----------------")
-                print(self.best_pop.acc_gene[0:4])
-                print(self.best_pop.net_gene[0:4])
-        return
 
     def initiate(self):
         for p in self.population:
@@ -118,7 +98,7 @@ class GeneticAlgorithm:
             # print(p.acc.topo)
             # software init
             # GG
-
+    #适者生存
     def keep_the_best(self):
         for p in self.population:
             if self.best_pop.fit < p.fit:
@@ -131,6 +111,7 @@ class GeneticAlgorithm:
             fit_sum += p.fit
         for p in self.population:
             p.r_fit = p.fit/fit_sum
+
         for i in range(0, len(self.population)):
             if i == 0:
                 self.population[i].c_fit = self.population[i].fit
@@ -148,7 +129,7 @@ class GeneticAlgorithm:
         # update population
         self.population = self.next_population
         return
-
+#满足突变条件则突变
     def crossover(self, attr_id, attr):
         fir = sec = -1
         for i in range(0, len(self.population)):
@@ -159,7 +140,7 @@ class GeneticAlgorithm:
                 else:
                     fir = i
         return
-
+    #双亲杂交产生新的个体
     def xover(self, attr_id, attr,  i, j):
         if attr != "topo":
             si = encode_int(self.population[i].acc_gene[attr_id])
@@ -241,7 +222,7 @@ class GeneticAlgorithm:
         area_thres = G_NUMBER
         energy_thres = G_NUMBER
         accuracy_thres = G_NUMBER
-        area = h.pe_num * (global_var.a_other['router'] + global_var.a_other['sram'])
+        area = h.pe_num * (global_var.a_other['router'] + global_var.a_cim['sram'])
         energy = 0
         accuracy = 0
 
@@ -285,7 +266,33 @@ class GeneticAlgorithm:
         # TODO: return fitness function
         return 1/(t_comm+t_comp) * self.p_factor * M
 
+    def run(self):
+        self.initiate()
+        self.evaluate()
+        self.keep_the_best()
+        # self.crossover()
 
-test_int_encoding()
+        for attr_id in range(0, len(genetic_algorithm_var.acc_gene_type)):
+            attr = genetic_algorithm_var.acc_gene_type[attr_id]
+            self.crossover(attr_id, attr)
+        gen = 0
+        for cur_iter in range(0, self.iter_num):
+            while gen < self.gen_num:
+                gen += 1
+                self.select()
+                #对每个基因型进行交叉变异
+                for attr_id in range(0, len(genetic_algorithm_var.acc_gene_type)):
+                    attr = genetic_algorithm_var.acc_gene_type[attr_id]
+                    self.crossover(attr_id, attr)
+                self.mutate()
+                self.evaluate()
+                # self.keep_the_best()
+                self.elitist()
+                print("best in each iteration----------------")
+                print(self.best_pop.acc_gene[0:4])
+                print(self.best_pop.net_gene[0:4])
+        return
+
+#test_int_encoding()
 ga = GeneticAlgorithm()
 ga.run()
