@@ -95,13 +95,20 @@ def test_topo_encoding():
                 p = random.random()
                 if ii != jj:
                     a[ii][jj] = a[jj][ii] = 1 if p < 0.5 else 0
-        if decode_topo(encode_topo(a), m).all() != a.all():
-            print(a)
-            print(encode_topo(a))
-            print(decode_topo(encode_topo(a), m))
-            print("--------------")
-            print("G")
-
+        b = decode_topo(encode_topo(a), m)
+        if len(b) != len(a):
+            return False
+        for i in range(len(b)):
+            for j in range(len(a)):
+                if b[i][j] != a[i][j]:
+                    return False
+        # if decode_topo(encode_topo(a), m).all() != a.all():
+        #     print(a)
+        #     print(encode_topo(a))
+        #     print(decode_topo(encode_topo(a), m))
+        #     print("--------------")
+        #     print("G")
+    return True
 
 def test_int_encoding():
     for i in range(100):
@@ -381,6 +388,7 @@ class GeneticAlgorithm:
 
 
 # test_int_encoding()
-# test_topo_encoding()
+if test_topo_encoding() == False:
+    print("G")
 ga = GeneticAlgorithm()
 ga.run()
