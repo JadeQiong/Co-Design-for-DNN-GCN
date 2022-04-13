@@ -16,10 +16,11 @@ class Population:
 
 def encode_int(num):
     s = []
-    while num:
+    while int(num) != 0:
         s.append(num % 2)
-        num = num/2
-    for i in range(0, genetic_algorithm_var.int_code_len-len(s)):
+        num = int(num/2)
+    dif = genetic_algorithm_var.int_code_len-len(s)
+    for i in range(0, dif):
         s.append(0)
     return s
 
@@ -29,7 +30,7 @@ def decode_int(s):
     for i in range(0, len(s)):
         if s[i] == 1:
             num += pow(2, i)
-    return num if num != 0 else 1
+    return num
 
 
 def encode_float(num):
@@ -49,6 +50,14 @@ def decode_topo(s):
     topo = 1
     return topo
 
+
+def test_int_encoding():
+    for i in range(100):
+        if (decode_int(encode_int(i)) != i):
+            print(i)
+            print(encode_int(i))
+            print(decode_int(encode_int(i)))
+            print("test failed")
 
 class GeneticAlgorithm:
 
@@ -82,8 +91,8 @@ class GeneticAlgorithm:
                 # self.keep_the_best()
                 self.elitist()
                 print("best in each iteration----------------")
-                print(self.best_pop.acc_gene)
-                print(self.best_pop.net_gene)
+                print(self.best_pop.acc_gene[0:4])
+                print(self.best_pop.net_gene[0:4])
         return
 
     def initiate(self):
@@ -161,8 +170,9 @@ class GeneticAlgorithm:
                 tmp = new_si[k]
                 new_si[k] = new_sj[k]
                 new_sj[k] = tmp
-            self.next_population[i].acc_gene[attr_id] = decode_int(new_si)
-            self.next_population[j].acc_gene[attr_id] = decode_int(new_sj)
+            # sometimes the value is set to 0, so max(1, num)
+            self.next_population[i].acc_gene[attr_id] = max(1, decode_int(new_si))
+            self.next_population[j].acc_gene[attr_id] = max(1, decode_int(new_sj))
         else:
             pass
         # if attr_type == "pe_num":
@@ -275,5 +285,7 @@ class GeneticAlgorithm:
         # TODO: return fitness function
         return 1/(t_comm+t_comp) * self.p_factor * M
 
+
+test_int_encoding()
 ga = GeneticAlgorithm()
 ga.run()
