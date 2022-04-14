@@ -33,6 +33,7 @@ data_bit_width = 64
 for i in range(0, net.num_Layers):
     # ！这里不会算
     # 方案1：平均分配给每个PE
+    #在这里把mac连接起来,换成PARA的total_mac
     tot_mac = net.layers[i][1] * net.layers[i][2]
     block_mac = tot_mac/h.pe_num
     # for each layer, we assign an accumulating PE(id = 0) for summing up partial sums

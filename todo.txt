@@ -1,2 +1,12 @@
-1. mac操作的变化
-2. mapping优化？
+初始的时候给定kernel和filter size为个数，kernel5，7，14；filter9，18，36.
+这里的kernel就是filter size，filter即为通道数。
+Random生成就是把他俩的值随机打乱排布
+Predict action里每次随机组合他俩，生成四层的对，stride=1，action=relu
+Controller控制的就是kernel和filter，生成四个卷积层
+前一层的输出通道数就是后一层的输入通道数，filter size在这里设定是等大的
+由于设置了same所以输出的特征图大小和输入特征图相等
+Layersize是算K,M,N,R,C
+
+
+Cifar10 32*32*3 50000训练10000验证
+Minist 28*28*1 60000训练10000验证
