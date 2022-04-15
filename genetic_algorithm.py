@@ -110,6 +110,7 @@ def test_topo_encoding():
         #     print("G")
     return True
 
+
 def test_int_encoding():
     for i in range(100):
         if decode_int(encode_int(i)) != i:
@@ -118,6 +119,11 @@ def test_int_encoding():
             print(decode_int(encode_int(i)))
             print("test failed")
 
+
+def print_res(res):
+    print("pe_num = " + str(res[0]) + " * " + str(res[1]) + " = " + str(res[0] * res[1]))
+    print("pe_size = " + str(res[2]))
+    print("pe_global_buffer = " + str(res[3]))
 
 class GeneticAlgorithm:
 
@@ -372,7 +378,8 @@ class GeneticAlgorithm:
                 self.keep_the_best()
                 self.elitist()
                 print("----------------best in each iteration " + str(gen) + "----------------")
-                print(self.best_pop.acc_gene[0:4])
+                print_res(self.best_pop.acc_gene)
+                #print(self.best_pop.acc_gene[0:4])
                 print(self.best_pop.net_gene[0:4])
 
         return
