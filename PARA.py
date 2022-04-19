@@ -14,15 +14,15 @@ import copy
 
 class DESIGN_PARA:
     def __init__(self, IMG_SIZE, IMG_CHANNEL):
-        self.IMG_SIZE = IMG_SIZE#图片大小 比如28或32
-        self.IMG_CHANNEL = IMG_CHANNEL#输入通道 比如1或3
+        self.IMG_SIZE = IMG_SIZE  # 图片大小 比如28或32
+        self.IMG_CHANNEL = IMG_CHANNEL  # 输入通道 比如1或3
 
     def total_mac(self, predic_actions):
         total_mac =[]
         for i in range(1, len(predic_actions), 2):
-            #如果是第一个卷积层的话，它的输入为输出图像的宽*输出图像的高*输出图像通道*卷积核宽*高*输入图像通道
+            # 如果是第一个卷积层的话，它的输入为输出图像的宽*输出图像的高*输出图像通道*卷积核宽*高*输入图像通道
             if i == 1:
-                mac =  self.IMG_SIZE * self.IMG_SIZE * predic_actions[i] * predic_actions[i - 1] * \
+                mac = self.IMG_SIZE * self.IMG_SIZE * predic_actions[i] * predic_actions[i - 1] * \
                             predic_actions[i - 1] * self.IMG_CHANNEL
 
             else:
@@ -38,7 +38,7 @@ class DESIGN_PARA:
         layers_size = []
         layer_size = [0] * 5
         # layer_size=[M,N,R,C,K]
-        # print(predic_actions)
+        # print(predict_actions)
         for i in range(0, len(predic_actions) - 1, 2):
             # print(i)
             if i == 0:
@@ -60,7 +60,7 @@ class DESIGN_PARA:
 
 
     '''
-    Cn denotes the convolution to laye n, layer 1 is the starter(input img). Thus, para N, Tn in C0 is not used.  
+    Cn denotes the convolution to layer n, layer 1 is the starter(input img). Thus, para N, Tn in C0 is not used.  
     '''
 
     def get_conv_names(self, predic_actions):

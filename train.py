@@ -1,7 +1,7 @@
 import numpy as np
 import csv
 import tensorflow as tf
-from keras import backend as K
+from tensorflow.keras import backend as K
 from keras.datasets import cifar10
 from keras.datasets import mnist
 from keras.utils import to_categorical
@@ -9,6 +9,8 @@ from controller import Controller, StateSpace
 from manager import NetworkManager
 from model import model_fn
 from PARA import DESIGN_PARA
+from genetic_algorithm import GeneticAlgorithm
+from network import Network
 import math
 import networkx as nx
 import csv
@@ -23,7 +25,7 @@ NUM_LAYERS = 4  # number of layers of the state space
 MAX_TRIALS = 10  # maximum number of models generated
 
 MAX_EPOCHS = 40  # maximum number of epochs to train
-CHILD_BATCHSIZE = 256  # batchsize of the child models
+CHILD_BATCHSIZE = 256  # batch size of the child models
 EXPLORATION = 0.1  # high exploration for the first 1000 steps
 REGULARIZATION = 1e-3  # regularization strength
 CONTROLLER_CELLS = 32  # number of cells in RNN controller
@@ -40,7 +42,7 @@ OPT_TIMEPERFORMANCE = 800000  # set the inference timing requirement
 # construct a state space
 state_space = StateSpace()
 
-# add states,在这里添加超参数的值
+# add states, 在这里添加超参数的值
 state_space.add_state(name='kernel', values=[5, 7, 14])
 state_space.add_state(name='filters', values=[9, 18, 36])
 
@@ -95,8 +97,6 @@ old_action_cnt = 0
 for trial in range(MAX_TRIALS):
     G = nx.DiGraph()
     M_DESIGN_PARA = DESIGN_PARA(IMG_SIZE,  IMG_CHANNEL)
-
-
     ite_count += 1
     print("===================This is TRIAL:", ite_count, "Let's go====================")
     with policy_sess.as_default():
@@ -130,7 +130,7 @@ for trial in range(MAX_TRIALS):
     end = time.time()
     print("This is time to explore design", end - start, "\n")
 
-   #这里就是我们计算的运行时间
+   # 这里就是我们计算的运行时间
     '''start = time.time()
     print('time_performancetime_performancetime_performancetime_performancetime_performance', time_performance)
     # We set performance according to the previous iteration
@@ -139,6 +139,11 @@ for trial in range(MAX_TRIALS):
           "This is time to evaluate time formance", end - start, "\n", "\n", "\n")
 
     per_list.append(time_performance)'''
+    network = Network(M_DESIGN_PARA.total_mac(actions))
+    ga = GeneticAlgorithm()
+    ga.setNetwork(network)
+    ga.run()
+    time_performance = ga.best_pop.fit
 
     # build a model, train and get reward and accuracy from the network manager
     reward, previous_acc = manager.get_rewards(model_fn, state_space.parse_state_space_list(actions), time_performance,
