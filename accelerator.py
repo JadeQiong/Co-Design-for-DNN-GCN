@@ -1,13 +1,13 @@
 import numpy as np
 
+
 class Accelerator(object):
 
-
-    def __init__(self, useList = False, acc_gene=[],
+    def __init__(self, uselist = False, acc_gene=[],
                  PE_numX = 4, PE_numY=4, tile_numX=3, tile_numY=3, PE_size = 10,
-                 global_buf_size=100, pe_topo=np.ones((0,0)), tile_topo=np.ones((0,0)), pe_buffer_size=100,
+                 global_buf_size=100, pe_topo=np.ones((0,0)), tile_topo=np.ones((0, 0)), pe_buffer_size=100,
                  ):
-        if useList is False:
+        if uselist is False:
             self.pe_size = PE_size
             self.pe_numX = PE_numX
             self.pe_numY = PE_numY
@@ -29,15 +29,14 @@ class Accelerator(object):
                 # print("init topo")
                 for i in range(0, PE_numX - 1):
                     for j in range(0, PE_numY):
-                        id = i * PE_numY + j
-                        self.pe_topo[id][id + PE_numY] = 1
-                        self.pe_topo[id + PE_numY][id] = 1
+                        topo_id = i * PE_numY + j
+                        self.pe_topo[topo_id][topo_id + PE_numY] = 1
+                        self.pe_topo[topo_id + PE_numY][topo_id] = 1
                 for j in range(0, PE_numY - 1):
                     for i in range(0, PE_numX):
-                        id = i * PE_numY + j
-                        self.pe_topo[id][id + 1] = 1
-                        self.pe_topo[id + 1][id] = 1
-
+                        topo_id = i * PE_numY + j
+                        self.pe_topo[topo_id][topo_id + 1] = 1
+                        self.pe_topo[topo_id + 1][topo_id] = 1
 
             if tile_topo.size != 0:
                 self.tile_topo = tile_topo
@@ -70,7 +69,7 @@ class Accelerator(object):
     def print(self):
         print("PE size is " + str(self.pe_size))
         print("PE num is " + str(self.pe_numX * self.pe_numY))
-        print("tile num is" +str(self.tile_numX * self.tile_numY))
+        print("tile num is" + str(self.tile_numX * self.tile_numY))
         print("pe buffer size is " + str(self.pe_buf_size))
         print("global buffer size is " + str(self.global_buf_size))
         # print(self.topo)

@@ -141,7 +141,7 @@ for trial in range(MAX_TRIALS):
     per_list.append(time_performance)'''
     network = Network(M_DESIGN_PARA.total_mac(actions))
     ga = GeneticAlgorithm()
-    ga.setNetwork(network)
+    ga.setnetwork(network)
     ga.run()
     time_performance = ga.best_pop.fit
 

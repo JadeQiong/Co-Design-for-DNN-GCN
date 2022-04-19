@@ -10,8 +10,9 @@ import numpy as np
 
 
 class Population:
-    def __init__(self, acc=Accelerator(), net=Network([[20,20,30],[20,30,30]]), fit=0, r_fit=0, c_fit=0):
-        self.acc_gene = [acc.pe_numX, acc.pe_numY, acc.tile_numX, acc.tile_numY, acc.pe_size, acc.global_buf_size, acc.pe_topo, acc.tile_topo]
+    def __init__(self, acc=Accelerator(), net=Network([[20, 20, 30], [20, 30, 30]]), fit=0, r_fit=0, c_fit=0):
+        self.acc_gene = [acc.pe_numX, acc.pe_numY, acc.tile_numX, acc.tile_numY,
+                         acc.pe_size, acc.global_buf_size, acc.pe_topo, acc.tile_topo]
         self.net = net
         # useless, but we leave it here temporarily
         self.net_gene = [net.macs]
@@ -24,6 +25,7 @@ class Population:
 
     def tile_num(self):
         return self.acc_gene[2] * self.acc_gene[3]
+
 
 # 对pe/tile数量编码
 def encode_int(num):
@@ -59,13 +61,12 @@ def decode_float(s):
 
 
 def random_topo(m):
-    print("m = "+str(m))
     topo = np.zeros((m, m))
     for i in range(m):
         for j in range(m):
             topo[i][j] = random.randint(0, 1)
     return topo
-#random_topo(5)
+
 
 def encode_topo(topo):
     s = []
@@ -86,11 +87,11 @@ def encode_topo(topo):
 def decode_topo(s, x):
     max_len = ga_configs.topo_code_len
     topo_padding = np.zeros((max_len, max_len))
-    id = 0
+    topo_id = 0
     for i in range(0, max_len):
         for j in range(i+1, max_len):
-            topo_padding[j][i] = topo_padding[i][j] = s[id]
-            id += 1
+            topo_padding[j][i] = topo_padding[i][j] = s[topo_id]
+            topo_id += 1
     return topo_padding[0:x, 0:x]
 
 
@@ -145,7 +146,7 @@ class GeneticAlgorithm:
         self.next_population = [Population() for i in range(self.pop_num)]   # 下一代种群
         self.best_pop = self.population[0]
 
-    def setNetwork(self, net):
+    def set_network(self, net):
         for p in self.population:
             p.net = net
 
@@ -248,7 +249,7 @@ class GeneticAlgorithm:
             self.next_population[j].acc_gene[attr_id] = self.population[i].acc_gene[attr_id]
             # self.next_population[i].acc_gene[attr_id] = max(1, decode_int(new_si))
             # self.next_population[j].acc_gene[attr_id] = max(1, decode_int(new_sj))
-        elif attr =="pe_topo":
+        elif attr == "pe_topo":
             self.next_population[i].acc_gene[attr_id] = decode_topo(new_si, self.next_population[i].pe_num())
             self.next_population[j].acc_gene[attr_id] = decode_topo(new_sj, self.next_population[j].pe_num())
         else:
@@ -321,13 +322,13 @@ class GeneticAlgorithm:
         t_comp = 0
 
         # 乘法因子
-        M = 0
+        m = 0
 
         # constraints
-        G_NUMBER = 10000
-        area_thres = G_NUMBER
-        energy_thres = G_NUMBER
-        accuracy_thres = G_NUMBER
+        g_number = 10000
+        area_thres = g_number
+        energy_thres = g_number
+        accuracy_thres = g_number
         area = (h.pe_numX * h.pe_numY) * (global_var.a_other['router'] + global_var.a_cim['sram'])
         energy = 0
         accuracy = 0
@@ -367,10 +368,10 @@ class GeneticAlgorithm:
             t_comp += max_time
 
         if energy > energy_thres or area > area_thres or accuracy < accuracy_thres:
-            M = (energy-energy_thres)*(area-area_thres)*(accuracy-accuracy_thres)
+            m = (energy-energy_thres)*(area-area_thres)*(accuracy-accuracy_thres)
 
         # TODO: return fitness function
-        return 1/max((t_comm+t_comp), 1) * self.p_factor * M
+        return 1/max((t_comm+t_comp), 1) * self.p_factor * m
 
     def run(self):
         self.initiate()

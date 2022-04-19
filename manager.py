@@ -52,7 +52,8 @@ class NetworkManager:
         Returns:
             a reward for training a model with the given actions
         '''
-#这里是比较计算得到的时间是否超出约束，如果超出约束那么就停止搜索神经网络，给一个负反馈，没有超出约束就给个正向反馈，公式可以直接用
+
+        # 这里是比较计算得到的时间是否超出约束，如果超出约束那么就停止搜索神经网络，给一个负反馈，没有超出约束就给个正向反馈，公式可以直接用
         if opt_performance < time_performance:
             print("time_performance failed, abort CNN training sad sad sad sad sad sad sad sad sad sad sad sad  ", "\n")
             performance_reward = ((opt_performance - time_performance) / 10 / opt_performance) - 1
@@ -62,7 +63,7 @@ class NetworkManager:
 
         else:
             print("time_performance meet, doing CNN training happy happy happy happy happy happy happy happy", "\n")
-            performance_reward = (time_performance) / opt_performance / 10
+            performance_reward = time_performance / opt_performance / 10
             with tf.Session(graph=tf.Graph()) as network_sess:
                 K.set_session(network_sess)
 
@@ -98,7 +99,7 @@ class NetworkManager:
                     reward = np.clip(reward, -0.05, 0.05)
 
                 # update moving accuracy with bias correction for 1st update
-                if self.beta > 0.0 and self.beta < 1.0:
+                if 0.0 < self.beta < 1.0:
                     self.moving_acc = self.beta * self.moving_acc + (1 - self.beta) * acc
                     self.moving_acc = self.moving_acc / (1 - self.beta_bias)
                     self.beta_bias = 0

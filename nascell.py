@@ -12,6 +12,7 @@ import warnings
 #import tensorflow as tf
 #import tensorflow.contrib.rnn as rnn
 
+
 class NASCell(Layer):
     """Neural Architecture Search (NAS) recurrent network cell.
     This implements the recurrent cell from the paper:
