@@ -19,3 +19,4 @@ e_trans = 1.17
 
 # inter-pe bandwidth constraints
 max_bandwidth = 10
+inter_tile_cost = 30

@@ -3,19 +3,12 @@ import random
 import global_var
 
 
-def topo_dis(topo, id1, id2):
-    maxn = 1e5
-    num = len(topo)
-    dis = np.empty([num, num], dtype=int)
-    for i in range(num):
-        for j in range(num):
-            dis[i][j] = 1 if topo[i][j] == 1 else maxn
+def get_dis(dis, num, id1, id2):
     for k in range(num):
         for i in range(num):
             for j in range(num):
                 dis[i][j] = min(dis[i][j], dis[i][k] + dis[k][j])
     return dis[id1][id2]
-
 
 # 带权topo初始化
 def initiate_topo(topo, x, y):
@@ -52,14 +45,15 @@ class Accelerator(object):
             # represent topology as a graph
             pe_num = self.pe_numX * self.pe_numY
             self.pe_topo = np.zeros((pe_num, pe_num))
-            if pe_topo.size != 0:
-                self.pe_topo = pe_topo
-            else:
-                initiate_topo(self.pe_topo, self.pe_numX, self.pe_numY)
             if tile_topo.size != 0:
                 self.tile_topo = tile_topo
             else:
                 initiate_topo(self.tile_topo, self.tile_numX, self.tile_numY)
+            if pe_topo.size != 0:
+                self.pe_topo = pe_topo
+            else:
+                initiate_topo(self.pe_topo, self.pe_numX, self.pe_numY)
+
         else:
             # 直接用acc_gene赋值，不用初始化
             self.pe_numX = acc_gene[0]
@@ -74,6 +68,37 @@ class Accelerator(object):
             # set quantization values
             for i in range(0, self.pe_numY * self.pe_numY):
                 self.quantization.append('64b')
+
+    def tile_topo_dis(self, id1, id2):
+        maxn = 1e5
+        num = len(self.tile_topo)
+        dis = np.empty([num, num], dtype=int)
+        for i in range(num):
+            for j in range(num):
+                dis[i][j] = 1 if self.tile_topo[i][j] == 1 else maxn
+        return get_dis(dis, num, id1, id2)
+
+    def tile_id(self, pe_id):
+        idx = pe_id / self.pe_numY
+        idy = pe_id % self.pe_numY
+        tile_x = idx / self.tile_numX
+        tile_y = idy / self.tile_numY
+        tile_id = tile_x * self.tile_numY + tile_y
+        return tile_id
+
+    def pe_topo_dis(self, id1, id2):
+        num = len(self.pe_topo)
+        dis = np.empty([num, num], dtype=int)
+        for i in range(num):
+            for j in range(num):
+                tile_i = self.tile_id(i)
+                tile_j = self.tile_id(j)
+                # the same tile
+                if tile_i == tile_j:
+                    dis[i][j] = self.pe_topo[i][j]
+                else:
+                    dis[i][j] = self.tile_topo_dis(tile_i, tile_j) * global_var.inter_tile_cost
+        return get_dis(dis, num, id1, id2)
 
     def print(self):
         print("PE size is " + str(self.pe_size))

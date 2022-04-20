@@ -1,5 +1,4 @@
 from accelerator import Accelerator
-from accelerator import topo_dis
 from network import Network
 import ga_configs
 import global_var
@@ -352,7 +351,7 @@ class GeneticAlgorithm:
         for i in range(0, net.num_Layers):
             max_hop = 0
             for j in mapping[i]:
-                max_hop = max(max_hop, topo_dis(h.pe_topo, accumulate_pe_id[i], j))
+                max_hop = max(max_hop, h.pe_topo_dis(accumulate_pe_id[i], j))
                 bit_num = mac_count[j] * data_bit_width
                 energy += global_var.e_trans * bit_num
             t_comm += max_hop * (global_var.t_trans + global_var.t_package + global_var.t_package)
