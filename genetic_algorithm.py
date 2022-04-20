@@ -1,4 +1,5 @@
 from accelerator import Accelerator
+from accelerator import topo_dis
 from network import Network
 import ga_configs
 import global_var
@@ -48,8 +49,6 @@ def decode_int(s):
         if s[i] == 1:
             num += pow(2, i)
     return num
-
-# decode_int([0,0,0,1,0])
 
 
 def encode_float(num):
@@ -173,7 +172,6 @@ class GeneticAlgorithm:
                     p.acc_gene[j] = random_topo(p.tile_num())
                 print("gene " + gene + str("id = ") + str(p.acc_gene[j]))
             # software init
-
         return
 
     # 保存当前最优解
@@ -342,7 +340,7 @@ class GeneticAlgorithm:
         for i in range(0, net.num_Layers):
             # ！这里不会算
             # 方案1：平均分配给每个PE
-            tot_mac = net.layers[i][1] * net.layers[i][2]
+            tot_mac = net.macs[i]
             block_mac = tot_mac / (h.pe_numX * h.pe_numY)
             # for each layer, we assign an accumulating PE(id = 0) for summing up partial sums
             accumulate_pe_id[i] = 0
@@ -354,7 +352,7 @@ class GeneticAlgorithm:
         for i in range(0, net.num_Layers):
             max_hop = 0
             for j in mapping[i]:
-                max_hop = max(max_hop, h.pe_dis(accumulate_pe_id[i], j))
+                max_hop = max(max_hop, topo_dis(h.pe_topo, accumulate_pe_id[i], j))
                 bit_num = mac_count[j] * data_bit_width
                 energy += global_var.e_trans * bit_num
             t_comm += max_hop * (global_var.t_trans + global_var.t_package + global_var.t_package)

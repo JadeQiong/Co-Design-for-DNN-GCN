@@ -16,3 +16,6 @@ t_package = 41
 t_recv_send = 2
 t_trans = 21
 e_trans = 1.17
+
+# inter-pe bandwidth constraints
+max_bandwidth = 10
