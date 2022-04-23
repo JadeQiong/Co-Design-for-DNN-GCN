@@ -139,9 +139,9 @@ for trial in range(MAX_TRIALS):
           "This is time to evaluate time formance", end - start, "\n", "\n", "\n")
 
     per_list.append(time_performance)'''
-    network = Network(M_DESIGN_PARA.total_mac(actions))
+    network = Network(useList=True, macs=M_DESIGN_PARA.total_mac(action_to_simulator))
     ga = GeneticAlgorithm()
-    ga.setnetwork(network)
+    ga.set_network(network)
     ga.run()
     time_performance = ga.best_pop.fit
 

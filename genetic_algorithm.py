@@ -6,6 +6,7 @@ import random
 import copy
 import numpy as np
 
+
 # 遗传算法搜索对象：pe数量，pe阵列的行和列，拓扑结构
 
 
@@ -17,8 +18,8 @@ class Population:
         # useless, but we leave it here temporarily
         self.net_gene = [net.macs]
         self.fit = fit  # 适应度
-        self.r_fit = r_fit   # 轮盘适应度
-        self.c_fit = c_fit   # 累计适应度
+        self.r_fit = r_fit  # 轮盘适应度
+        self.c_fit = c_fit  # 累计适应度
 
     def pe_num(self):
         return self.acc_gene[0] * self.acc_gene[1]
@@ -32,7 +33,7 @@ def encode_int(num):
     s = []
     while int(num) != 0:
         s.append(num % 2)
-        num = int(num/2)
+        num = int(num / 2)
     dif = ga_configs.int_code_len - len(s)
     for i in range(0, dif):
         s.append(0)
@@ -87,7 +88,7 @@ def decode_topo(s, x):
     topo_padding = np.zeros((max_len, max_len))
     topo_id = 0
     for i in range(0, max_len):
-        for j in range(i+1, max_len):
+        for j in range(i + 1, max_len):
             topo_padding[j][i] = topo_padding[i][j] = s[topo_id]
             topo_id += 1
     return topo_padding[0:x, 0:x]
@@ -98,7 +99,7 @@ def test_topo_encoding():
         m = random.randint(1, 10)
         a = np.zeros((m, m))
         for ii in range(0, m):
-            for jj in range(ii+1, m):
+            for jj in range(ii + 1, m):
                 p = random.random()
                 if ii != jj:
                     a[ii][jj] = a[jj][ii] = 1 if p < 0.5 else 0
@@ -136,12 +137,12 @@ def print_res(res):
 class GeneticAlgorithm:
 
     def __init__(self, pop_num=10, iter_num=10, gen_num=10, pf=1):
-        self.pop_num = pop_num   # 种群数量
+        self.pop_num = pop_num  # 种群数量
         self.iter_num = iter_num  # 迭代次数
-        self.gen_num = gen_num   # 迭代一次的时候有多少代个体产生
-        self.p_factor = pf    # punish factor
-        self.population = [Population() for i in range(self.pop_num)]    # 当前种群
-        self.next_population = [Population() for i in range(self.pop_num)]   # 下一代种群
+        self.gen_num = gen_num  # 迭代一次的时候有多少代个体产生
+        self.p_factor = pf  # punish factor
+        self.population = [Population() for i in range(self.pop_num)]  # 当前种群
+        self.next_population = [Population() for i in range(self.pop_num)]  # 下一代种群
         self.best_pop = self.population[0]
 
     def set_network(self, net):
@@ -186,13 +187,13 @@ class GeneticAlgorithm:
         for p in self.population:
             fit_sum += p.fit
         for p in self.population:
-            p.r_fit = p.fit/fit_sum
+            p.r_fit = p.fit / fit_sum
 
         for i in range(0, len(self.population)):
             if i == 0:
                 self.population[i].c_fit = self.population[i].fit
             else:
-                self.population[i].c_fit = self.population[i-1].c_fit + self.population[i].fit
+                self.population[i].c_fit = self.population[i - 1].c_fit + self.population[i].fit
 
         # generate random probability
         for i in range(0, len(self.population)):
@@ -200,14 +201,17 @@ class GeneticAlgorithm:
             if probability < self.population[0].c_fit:
                 self.next_population[i] = copy.deepcopy(self.population[i])
             else:
-                for j in range(0, len(self.population)-1):
+                for j in range(0, len(self.population) - 1):
                     if self.population[j].c_fit <= probability < self.population[j + 1].c_fit:
-                        self.next_population[i] = copy.deepcopy(self.population[j+1])
+                        self.next_population[i] = copy.deepcopy(self.population[j + 1])
 
         # update population
         self.population = copy.deepcopy(self.next_population)
         return
 
+    # 近似：分段线性
+    # 多项式拟合
+    #
     # 选一对个体杂交
     def crossover(self, attr_id):
         fir = -1
@@ -216,7 +220,7 @@ class GeneticAlgorithm:
             p = random.uniform(0, 1)
             if ga_configs.crossover_rates[attr] > p:
                 if fir != -1:
-                    print("attr_id: "+str(attr_id)+", "+str(attr))
+                    print("attr_id: " + str(attr_id) + ", " + str(attr))
                     self.xover(attr_id, attr, fir, i)
                     fir = -1
                 else:
@@ -224,7 +228,7 @@ class GeneticAlgorithm:
         return
 
     # 双亲杂交产生新的个体
-    def xover(self, attr_id, attr,  i, j):
+    def xover(self, attr_id, attr, i, j):
         if (attr != "tile_topo") and (attr != "pe_topo"):
             si = encode_int(self.population[i].acc_gene[attr_id])
             sj = encode_int(self.population[j].acc_gene[attr_id])
@@ -326,7 +330,13 @@ class GeneticAlgorithm:
         area_thres = g_number
         energy_thres = g_number
         accuracy_thres = g_number
-        area = (h.pe_numX * h.pe_numY) * (global_var.a_other['router'] + global_var.a_cim['sram'])
+        subarray = 128
+        tile_area = global_var.a_other['pe_buffer'] + h.pe_numX * h.pe_numY * \
+                    (global_var.a_other['router'] + subarray * subarray * global_var.a_cim['sram'] + global_var.a_other[
+                        'others'])
+        # 总面积为tile个数乘以tile面积加Noc路由器面积再加上总缓冲区面积大小，tile数量等于层数
+        area = h.tile_numX * h.tile_numY * (tile_area + global_var.a_other['router']) + global_var.a_other[
+            'global_buffer']
         energy = 0
         accuracy = 0
 
@@ -336,19 +346,22 @@ class GeneticAlgorithm:
         mac_count = [0 for i in range(h.pe_numX * h.pe_numY)]
         data_bit_width = 64
 
+        # print("num of layers = "+str(net.num_Layers))
         for i in range(0, net.num_Layers):
             # ！这里不会算
             # 方案1：平均分配给每个PE
+            # print("mac = " + str(net.macs[i]))
             tot_mac = net.macs[i]
-            block_mac = tot_mac / (h.pe_numX * h.pe_numY)
+            tile_block_mac = tot_mac / (h.tile_numX * h.tile_numY)
+            pe_block_mac = tile_block_mac / (h.pe_numX * h.pe_numY)
             # for each layer, we assign an accumulating PE(id = 0) for summing up partial sums
             accumulate_pe_id[i] = 0
             for j in range(h.pe_numX * h.pe_numY):
                 # mapping[i]: the i th layer is mapped to PE[0th ,1th, 2th, ... ]
-                mac_count[j] = block_mac
+                mac_count[j] = pe_block_mac
                 mapping[i].append(j)
 
-        for i in range(0, net.num_Layers):
+        for i in range(net.num_Layers):
             max_hop = 0
             for j in mapping[i]:
                 max_hop = max(max_hop, h.pe_topo_dis(accumulate_pe_id[i], j))
@@ -360,15 +373,20 @@ class GeneticAlgorithm:
         for i in range(0, len(net.macs)):
             max_time = 0
             for j in mapping[i]:
-                max_time = max(max_time, mac_count[j] * global_var.t_mac[h.quantization[j]])
-                energy += global_var.e_mac[h.quantization[j]] * mac_count[j]
+                max_time = max(max_time, mac_count[j] * 6)
+                # global_var.t_mac[h.quantization[j]])
+                # energy += global_var.e_mac[h.quantization[j]] * mac_count[j]
+                energy += 6 * mac_count[j]
             t_comp += max_time
 
         if energy > energy_thres or area > area_thres or accuracy < accuracy_thres:
-            m = (energy-energy_thres)*(area-area_thres)*(accuracy-accuracy_thres)
-
+            m = (energy - energy_thres) * (area - area_thres) * (accuracy - accuracy_thres)
+        print("time = " + str(t_comm + t_comp))
+        print("area = " + str(area))
+        print("energy = " + str(energy))
+        print(" -----------------------------------")
         # TODO: return fitness function
-        return 1/max((t_comm+t_comp), 1) * self.p_factor * m
+        return 1 / max((t_comm + t_comp), 1) * self.p_factor * m
 
     def run(self):
         self.initiate()

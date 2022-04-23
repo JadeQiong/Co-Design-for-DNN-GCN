@@ -27,11 +27,10 @@ class DESIGN_PARA:
                             predic_actions[i - 1] * self.IMG_CHANNEL
 
             else:
-                mac = total_mac + self.IMG_SIZE * self.IMG_SIZE * predic_actions[i] * predic_actions[i - 1] * \
+                mac = self.IMG_SIZE * self.IMG_SIZE * predic_actions[i] * predic_actions[i - 1] * \
                             predic_actions[i - 1] * predic_actions[i - 2]
 
             total_mac.append(mac)
-        print(total_mac)
         return total_mac
 
 

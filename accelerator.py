@@ -79,10 +79,10 @@ class Accelerator(object):
         return get_dis(dis, num, id1, id2)
 
     def tile_id(self, pe_id):
-        idx = pe_id / self.pe_numY
+        idx = pe_id // self.pe_numY
         idy = pe_id % self.pe_numY
-        tile_x = idx / self.tile_numX
-        tile_y = idy / self.tile_numY
+        tile_x = idx // self.tile_numX
+        tile_y = idy // self.tile_numY
         tile_id = tile_x * self.tile_numY + tile_y
         return tile_id
 
@@ -94,10 +94,10 @@ class Accelerator(object):
                 tile_i = self.tile_id(i)
                 tile_j = self.tile_id(j)
                 # the same tile
-                if tile_i == tile_j:
-                    dis[i][j] = self.pe_topo[i][j]
-                else:
-                    dis[i][j] = self.tile_topo_dis(tile_i, tile_j) * global_var.inter_tile_cost
+                # if tile_i == tile_j:
+                dis[i][j] = self.pe_topo[i][j]
+                # else:
+                #dis[i][j] = self.tile_topo_dis(tile_i, tile_j) * global_var.inter_tile_cost
         return get_dis(dis, num, id1, id2)
 
     def print(self):
