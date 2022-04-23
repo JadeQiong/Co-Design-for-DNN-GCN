@@ -317,6 +317,100 @@ class GeneticAlgorithm:
             net = p.net
             p.fit = self.cal(acc, net)
 
+    # def cal(self, h, net):
+    #     # objective function
+    #     t_comm = 0
+    #     t_comp = 0
+    #
+    #     # 乘法因子
+    #     m = 0
+    #
+    #     # constraints
+    #     g_number = 10000
+    #     area_thres = g_number
+    #     energy_thres = g_number
+    #     accuracy_thres = g_number
+    #     subarray = 128
+    #     tile_area = global_var.a_other['pe_buffer'] + h.pe_numX * h.pe_numY * \
+    #                 (global_var.a_other['router'] + subarray * subarray * global_var.a_cim['sram'] + global_var.a_other[
+    #                     'others'])
+    #     # 总面积为tile个数乘以tile面积加Noc路由器面积再加上总缓冲区面积大小，tile数量等于层数
+    #     area = h.tile_numX * h.tile_numY * (tile_area + global_var.a_other['router']) + global_var.a_other[
+    #         'global_buffer']
+    #     energy = 0
+    #     accuracy = 0
+    #
+    #     # communication time
+    #     tile_mapping = [[] for i in range(net.num_Layers)]
+    #     pe_mapping = [[] for i in range(h.tile_numX * h.tile_numY)]
+    #     accumulate_tile_id = [0 for i in range(net.num_Layers)]
+    #     accumulate_pe_id = [0 for i in range(h.tile_numX * h.tile_numY)]
+    #     tile_mac_count = [0 for i in range(h.tile_numX * h.tile_numY)]
+    #     pe_mac_count = [[0 for i in range(h.pe_numX * h.pe_numY)] for j in range(h.tile_numX * h.tile_numY)]
+    #     data_bit_width = 64
+    #
+    #     # print("num of layers = "+str(net.num_Layers))
+    #     for i in range(0, net.num_Layers):
+    #         # ！这里不会算
+    #         # 方案1：平均分配给每个PE
+    #         # print("mac = " + str(net.macs[i]))
+    #         tot_mac = net.macs[i]
+    #         tile_block_mac = tot_mac / (h.tile_numX * h.tile_numY)
+    #         pe_block_mac = tile_block_mac / (h.pe_numX * h.pe_numY)
+    #         # for each layer, we assign an accumulating PE(id = 0) for summing up partial sums
+    #         accumulate_pe_id[i] = 0
+    #         for q in range(h.tile_numX * h.tile_numY):
+    #             accumulate_pe_id[q] = 0
+    #
+    #         for j in range(h.tile_numX * h.tile_numY):
+    #             # mapping[i]: the i th layer is mapped to PE[0th ,1th, 2th, ... ]
+    #             tile_mac_count[j] = tile_block_mac
+    #             tile_mapping[i].append(j)
+    #
+    #         for k in range(h.tile_numX * h.tile_numY):
+    #             for j in range(h.pe_numX * h.pe_numY):
+    #                 pe_mac_count[k][j] = pe_block_mac
+    #
+    #     for i in range(net.num_Layers):
+    #         tile_max_hop = 0
+    #         pe_max_hop = [0 for s in range(h.tile_numX * h.tile_numY)]
+    #         pe_comm = 0
+    #         # tile层通信
+    #         for j in tile_mapping[i]:
+    #             tile_max_hop = max(tile_max_hop, h.pe_topo_dis(accumulate_tile_id[i], j))
+    #             bit_num = tile_mac_count[j] * data_bit_width
+    #             energy += global_var.e_trans * bit_num
+    #         tile_comm = tile_max_hop * (global_var.t_trans + global_var.t_package + global_var.t_package)
+    #         # pe层通信
+    #         for s in range(0, h.tile_numX * h.tile_numY):
+    #             for j in pe_mapping[j]:
+    #                 pe_max_hop[s] = max(pe_max_hop[s], h.pe_topo_dis(accumulate_pe_id[s], j))
+    #                 bit_num = pe_mac_count[s][j] * data_bit_width
+    #                 energy += global_var.e_trans * bit_num
+    #             pe_comm += pe_max_hop[s] * (global_var.t_trans + global_var.t_package + global_var.t_package)
+    #
+    #     t_comm = tile_comm + pe_comm
+    #
+    #     # computation time
+    #     for i in range(0, len(net.macs)):
+    #         max_time = 0
+    #         for s in range(h.tile_numX * h.tile_numY):
+    #             for j in pe_mapping[i]:
+    #                 max_time = max(max_time, pe_mac_count[s][j] * 6)
+    #             # global_var.t_mac[h.quantization[j]])
+    #             # energy += global_var.e_mac[h.quantization[j]] * mac_count[j]
+    #             energy += 6 * pe_mac_count[s][j]
+    #         t_comp += max_time
+    #
+    #     if energy > energy_thres or area > area_thres or accuracy < accuracy_thres:
+    #         m = (energy - energy_thres) * (area - area_thres) * (accuracy - accuracy_thres)
+    #     print("time = " + str(t_comm + t_comp))
+    #     print("area = " + str(area))
+    #     print("energy = " + str(energy))
+    #     print(" -----------------------------------")
+    #     # TODO: return fitness function
+    #     return 1 / max((t_comm + t_comp), 1) * self.p_factor * m
+
     def cal(self, h, net):
         # objective function
         t_comm = 0
@@ -326,66 +420,87 @@ class GeneticAlgorithm:
         m = 0
 
         # constraints
-        g_number = 10000
+        g_number = 100000
         area_thres = g_number
         energy_thres = g_number
         accuracy_thres = g_number
         subarray = 128
-        tile_area = global_var.a_other['pe_buffer'] + h.pe_numX * h.pe_numY * \
-                    (global_var.a_other['router'] + subarray * subarray * global_var.a_cim['sram'] + global_var.a_other[
-                        'others'])
+        tile_area = global_var.a_other['pe_buffer'] + h.pe_numX * h.pe_numY * (
+                global_var.a_other['router'] + subarray * subarray * global_var.a_cim['sram'] + global_var.a_other[
+            'others'])
         # 总面积为tile个数乘以tile面积加Noc路由器面积再加上总缓冲区面积大小，tile数量等于层数
-        area = h.tile_numX * h.tile_numY * (tile_area + global_var.a_other['router']) + global_var.a_other[
+        total_area = h.tile_numX * h.tile_numY * (tile_area + global_var.a_other['router']) + global_var.a_other[
             'global_buffer']
         energy = 0
         accuracy = 0
 
         # communication time
-        mapping = [[] for i in range(net.num_Layers)]
-        accumulate_pe_id = [0 for i in range(net.num_Layers)]
-        mac_count = [0 for i in range(h.pe_numX * h.pe_numY)]
+        tile_mapping = [[] for i in range(net.num_Layers)]
+        pe_mapping = [[] for j in range(h.tile_numX * h.tile_numY)]
+        accumulate_tile_id = [0 for m in range(net.num_Layers)]
+        accumulate_pe_id = [0 for q in range(h.tile_numX * h.tile_numY)]
+        tile_mac_count = [0 for i in range(h.tile_numX * h.tile_numY)]
+        pe_mac_count = [[0 for i in range(h.pe_numX * h.pe_numY)] for j in range(h.tile_numX * h.tile_numY)]
         data_bit_width = 64
+        # 第s个tile中的PE映射
+        for s in range(h.tile_numX * h.tile_numY):
+            for j in range(h.pe_numX * h.pe_numY):
+                pe_mapping[s].append(j)
+        print(h.tile_numX * h.tile_numY, h.pe_numX * h.pe_numY, pe_mapping)
 
-        # print("num of layers = "+str(net.num_Layers))
         for i in range(0, net.num_Layers):
             # ！这里不会算
             # 方案1：平均分配给每个PE
-            # print("mac = " + str(net.macs[i]))
             tot_mac = net.macs[i]
             tile_block_mac = tot_mac / (h.tile_numX * h.tile_numY)
             pe_block_mac = tile_block_mac / (h.pe_numX * h.pe_numY)
             # for each layer, we assign an accumulating PE(id = 0) for summing up partial sums
-            accumulate_pe_id[i] = 0
-            for j in range(h.pe_numX * h.pe_numY):
-                # mapping[i]: the i th layer is mapped to PE[0th ,1th, 2th, ... ]
-                mac_count[j] = pe_block_mac
-                mapping[i].append(j)
+            accumulate_tile_id[i] = 0
+            for q in range(h.tile_numX * h.tile_numY):
+                accumulate_pe_id[q] = 0
+            for p in range(h.tile_numX * h.tile_numY):
+                # tile_mapping[i]: the i th layer is mapped to tile[0th ,1th, 2th, ... ]
+                tile_mac_count[p] = tile_block_mac
+                tile_mapping[i].append(p)
 
-        for i in range(net.num_Layers):
-            max_hop = 0
-            for j in mapping[i]:
-                max_hop = max(max_hop, h.pe_topo_dis(accumulate_pe_id[i], j))
-                bit_num = mac_count[j] * data_bit_width
+            for s in range(h.tile_numX * h.tile_numY):
+                for j in range(h.pe_numX * h.pe_numY):
+                    # pe_mapping[i]: the i th layer is mapped to pe[0th ,1th, 2th, ... ]
+                    pe_mac_count[s][j] = pe_block_mac
+
+        for i in range(0, net.num_Layers):
+            tile_max_hop = 0
+            pe_max_hop = [0 for s in range(h.tile_numX * h.tile_numY)]
+            pe_comm = 0
+            # tile层通信
+            for p in tile_mapping[i]:
+                tile_max_hop = max(tile_max_hop, h.tile_topo_dis(accumulate_tile_id[i], p))
+                bit_num = tile_mac_count[p] * data_bit_width
                 energy += global_var.e_trans * bit_num
-            t_comm += max_hop * (global_var.t_trans + global_var.t_package + global_var.t_package)
+            tile_comm = tile_max_hop * (global_var.t_trans + global_var.t_package + global_var.t_package)
+            # pe层通信
+            for s in range(0, h.tile_numX * h.tile_numY):
+                for j in pe_mapping[s]:
+                    pe_max_hop[s] = max(pe_max_hop[s], h.pe_topo_dis(accumulate_pe_id[s], j))
+                    bit_num = pe_mac_count[s][j] * data_bit_width
+                    energy += global_var.e_trans * bit_num
+                pe_comm += pe_max_hop[s] * (global_var.t_trans + global_var.t_package + global_var.t_package)
+            t_comm += tile_comm + pe_comm
 
         # computation time
         for i in range(0, len(net.macs)):
             max_time = 0
-            for j in mapping[i]:
-                max_time = max(max_time, mac_count[j] * 6)
-                # global_var.t_mac[h.quantization[j]])
-                # energy += global_var.e_mac[h.quantization[j]] * mac_count[j]
-                energy += 6 * mac_count[j]
+            for s in range(0, h.tile_numX * h.tile_numY):
+                for j in pe_mapping[s]:
+                    max_time = max(max_time, pe_mac_count[s][j] * global_var.t_mac[h.quantization[j]])
+                    energy += global_var.e_mac[h.quantization[j]] * pe_mac_count[s][j]
             t_comp += max_time
 
-        if energy > energy_thres or area > area_thres or accuracy < accuracy_thres:
-            m = (energy - energy_thres) * (area - area_thres) * (accuracy - accuracy_thres)
-        print("time = " + str(t_comm + t_comp))
-        print("area = " + str(area))
-        print("energy = " + str(energy))
-        print(" -----------------------------------")
+        if energy > energy_thres or total_area > area_thres or accuracy < accuracy_thres:
+            m = (energy - energy_thres) * (total_area - area_thres) * (accuracy - accuracy_thres)
+
         # TODO: return fitness function
+        # print(t_comm + t_comp)
         return 1 / max((t_comm + t_comp), 1) * self.p_factor * m
 
     def run(self):
