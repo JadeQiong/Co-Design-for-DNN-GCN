@@ -29,7 +29,7 @@ def initiate_topo(topo, x, y):
 class Accelerator(object):
 
     def __init__(self, uselist=False, acc_gene=[],
-                 PE_numX=12, PE_numY=12, tile_numX=3, tile_numY=3, PE_size=10,
+                 PE_numX=4, PE_numY=4, tile_numX=3, tile_numY=3, PE_size=10,
                  global_buf_size=100, pe_topo=np.ones((0, 0)), tile_topo=np.ones((0, 0)), pe_buffer_size=100):
         if uselist is False:
             self.pe_size = PE_size

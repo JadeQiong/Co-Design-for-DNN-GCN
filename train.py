@@ -1,3 +1,4 @@
+# -*- coding: UTF-8 -*-
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras import backend as K
@@ -17,7 +18,7 @@ import time
 
 data_file = open("output.csv", 'w', encoding='utf-8')
 csv_writer = csv.writer(data_file)
-csv_writer.writerow(["iter", "fitness", "area", "power", "accuracy"])
+csv_writer.writerow(["iter", "fitness", "time/ns", "area/mm^2", "power/nJ", "accuracy"])
 
 # create a shared session between Keras and Tensorflow
 policy_sess = tf.Session()
@@ -146,8 +147,10 @@ for trial in range(MAX_TRIALS):
     ga.set_network(network)
     ga.run()
     best = ga.best_pop
-    time_performance = best.fit
-    csv_writer.writerow([trial, best.fit, best.area, best.energy, best.acc])
+    time_performance = best.time
+    print("best: time =  " + str(best.time) + "ns, area = "+str(best.area)+"mm^2, energy = "+str(best.energy))
+    csv_writer.writerow([trial, best.fit, best.time, best.area, best.energy, best.acc])
+    print(" Write ok ")
     # build a model, train and get reward and accuracy from the network manager
     reward, previous_acc = manager.get_rewards(model_fn, state_space.parse_state_space_list(actions), time_performance,
                                                OPT_TIMEPERFORMANCE)  # CNN train and return the best accura
@@ -184,4 +187,5 @@ for trial in range(MAX_TRIALS):
             writer.writerow(data)
     print()
 
+    data_file.close()
 print("Total Reward : ", total_reward)

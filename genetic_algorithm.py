@@ -1,3 +1,4 @@
+# -*- coding: UTF-8 -*-
 from accelerator import Accelerator
 from network import Network
 import ga_configs
@@ -11,7 +12,7 @@ import numpy as np
 
 
 class Population:
-    def __init__(self, acc=Accelerator(), net=Network([[20, 20, 30], [20, 30, 30]]), fit=0, r_fit=0, c_fit=0):
+    def __init__(self, acc=Accelerator(), net=Network(True, [20, 30, 30]), fit=0, r_fit=0, c_fit=0):
         self.acc_gene = [acc.pe_numX, acc.pe_numY, acc.tile_numX, acc.tile_numY,
                          acc.pe_size, acc.global_buf_size, acc.pe_topo, acc.tile_topo]
         self.net = net
@@ -23,6 +24,7 @@ class Population:
         self.area = -1
         self.energy = -1
         self.acc = -1
+        self.time = -1
 
     def pe_num(self):
         return self.acc_gene[0] * self.acc_gene[1]
@@ -139,7 +141,7 @@ def print_res(res):
 
 class GeneticAlgorithm:
 
-    def __init__(self, pop_num=10, iter_num=10, gen_num=10, pf=1):
+    def __init__(self, pop_num=5, iter_num=5, gen_num=5, pf=1):
         self.pop_num = pop_num  # 种群数量
         self.iter_num = iter_num  # 迭代次数
         self.gen_num = gen_num  # 迭代一次的时候有多少代个体产生
@@ -173,7 +175,6 @@ class GeneticAlgorithm:
                     p.acc_gene[j] = random_topo(p.pe_num())
                 elif gene == "tile_topo":
                     p.acc_gene[j] = random_topo(p.tile_num())
-                print("gene " + gene + str("id = ") + str(p.acc_gene[j]))
             # software init
         return
 
@@ -223,7 +224,6 @@ class GeneticAlgorithm:
             p = random.uniform(0, 1)
             if ga_configs.crossover_rates[attr] > p:
                 if fir != -1:
-                    print("attr_id: " + str(attr_id) + ", " + str(attr))
                     self.xover(attr_id, attr, fir, i)
                     fir = -1
                 else:
@@ -259,13 +259,22 @@ class GeneticAlgorithm:
         else:
             self.next_population[i].acc_gene[attr_id] = decode_topo(new_si, self.next_population[i].tile_num())
             self.next_population[j].acc_gene[attr_id] = decode_topo(new_sj, self.next_population[j].tile_num())
-        print(" -------parents------- ")
-        # print(self.population[i].acc_gene[6])
-        # print(self.population[j].acc_gene[6])
-        print(" ------children----- ")
-        print(self.next_population[i].acc_gene[6])
-        print(self.next_population[j].acc_gene[6])
-        print(" --------------------------------- ")
+
+        si = encode_topo(self.population[i].acc_gene[6])
+        self.next_population[i].acc_gene[6] = decode_topo(si, self.next_population[i].pe_num())
+        sj = encode_topo(self.population[j].acc_gene[6])
+        self.next_population[j].acc_gene[6] = decode_topo(sj, self.next_population[j].pe_num())
+        ti = encode_topo(self.population[i].acc_gene[7])
+        self.next_population[i].acc_gene[7] = decode_topo(ti, self.next_population[i].tile_num())
+        tj = encode_topo(self.population[j].acc_gene[7])
+        self.next_population[j].acc_gene[7] = decode_topo(tj, self.next_population[j].tile_num())
+        # print(" -------parents------- ")
+        # # print(self.population[i].acc_gene[6])
+        # # print(self.population[j].acc_gene[6])
+        # print(" ------children----- ")
+        # print(self.next_population[i].acc_gene[6])
+        # print(self.next_population[j].acc_gene[6])
+        # print(" --------------------------------- ")
 
         return
 
@@ -317,7 +326,7 @@ class GeneticAlgorithm:
             acc = Accelerator(True, p.acc_gene)
             net = p.net
             res = self.cal(acc, net)
-            p.fit, p.area, p.energy, p.acc = res[0], res[1], res[2], res[3]
+            p.fit, p.time, p.area, p.energy, p.acc = res[0], res[1], res[2], res[3], res[4]
 
     def cal(self, h, net):
         # objective function
@@ -354,7 +363,7 @@ class GeneticAlgorithm:
         for s in range(h.tile_numX * h.tile_numY):
             for j in range(h.pe_numX * h.pe_numY):
                 pe_mapping[s].append(j)
-        print(h.tile_numX * h.tile_numY, h.pe_numX * h.pe_numY, pe_mapping)
+        # print(h.tile_numX * h.tile_numY, h.pe_numX * h.pe_numY, pe_mapping)
 
         for i in range(0, net.num_Layers):
             # ！这里不会算
@@ -376,32 +385,43 @@ class GeneticAlgorithm:
                     # pe_mapping[i]: the i th layer is mapped to pe[0th ,1th, 2th, ... ]
                     pe_mac_count[s][j] = pe_block_mac
 
-        for i in range(0, net.num_Layers):
-            tile_max_hop = 0
-            pe_max_hop = [0 for s in range(h.tile_numX * h.tile_numY)]
+        for i in range(net.num_Layers):
+            tile_max_time = 0
+            pe_max_time = [0 for s in range(h.tile_numX * h.tile_numY)]
             pe_comm = 0
             # tile层通信
             for p in tile_mapping[i]:
-                tile_max_hop = max(tile_max_hop, h.tile_topo_dis(accumulate_tile_id[i], p))
+                if accumulate_tile_id[i] >= len(h.tile_topo) or p >= len(h.tile_topo):
+                    print("tile topo = " + str(h.tile_topo.shape))
+                    print("tile dis between " + str(accumulate_tile_id[i]) + " " + str(p))
+                    continue
                 bit_num = tile_mac_count[p] * data_bit_width
+                tile_max_time = max(tile_max_time, h.tile_topo_dis(accumulate_tile_id[i], p) * bit_num)
                 energy += global_var.e_trans * bit_num
-            tile_comm = tile_max_hop * (global_var.t_trans + global_var.t_package + global_var.t_package)
+            tile_comm = tile_max_time * (global_var.t_trans + global_var.t_package + global_var.t_package)
             # pe层通信
             for s in range(0, h.tile_numX * h.tile_numY):
                 for j in pe_mapping[s]:
-                    pe_max_hop[s] = max(pe_max_hop[s], h.pe_topo_dis(accumulate_pe_id[s], j))
+                    if accumulate_pe_id[s] >= len(h.pe_topo) or j >= len(h.pe_topo):
+                        print("pe topo = " + str(h.pe_topo.shape))
+                        print("dis between " + str(accumulate_pe_id[s]) + " " + str(j))
+                        continue
                     bit_num = pe_mac_count[s][j] * data_bit_width
+                    pe_max_time[s] = max(pe_max_time[s], h.pe_topo_dis(accumulate_pe_id[s], j) * bit_num)
                     energy += global_var.e_trans * bit_num
-                pe_comm += pe_max_hop[s] * (global_var.t_trans + global_var.t_package + global_var.t_package)
+                pe_comm += pe_max_time[s] * (global_var.t_trans + global_var.t_package + global_var.t_package)
             t_comm += (tile_comm + pe_comm)
 
-        # computation time
-        for i in range(0, len(net.macs)):
+        # computation time]
+        # print("??????????????? " + str(net.macs))
+        for i in range(len(net.macs)):
             max_time = 0
             for s in range(0, h.tile_numX * h.tile_numY):
                 for j in pe_mapping[s]:
-                    max_time = max(max_time, pe_mac_count[s][j] * global_var.t_mac[h.quantization[j]])
-                    energy += global_var.e_mac[h.quantization[j]] * pe_mac_count[s][j]
+                    # max_time = max(max_time, pe_mac_count[s][j] * global_var.t_mac[h.quantization[j]])
+                    max_time = max(max_time, pe_mac_count[s][j] * 0.4)
+                    # energy += global_var.e_mac[h.quantization[j]] * pe_mac_count[s][j]
+                    energy += 0.024 * pe_mac_count[s][j]
             t_comp += max_time
 
         if energy > energy_thres or total_area > area_thres or accuracy < accuracy_thres:
@@ -409,18 +429,22 @@ class GeneticAlgorithm:
 
         # TODO: return fitness function
         # print(t_comm + t_comp)
-        return 1 / max((t_comm + t_comp), 1) * self.p_factor * m, total_area, energy, accuracy
+        return 1 / max((t_comm + t_comp), 1) * self.p_factor * m, t_comp + t_comm, total_area, energy, accuracy
 
     def run(self):
         self.initiate()
+        print("initated")
         self.evaluate()
+        print("evaluated")
         self.keep_the_best()
+        print("keep the best")
         for attr_id in range(0, len(ga_configs.acc_gene_type)):
             self.crossover(attr_id)
-            print(attr_id)
+            # print(attr_id)
 
         gen = 0
         for cur_iter in range(0, self.iter_num):
+            print("iter = "+str(cur_iter))
             while gen < self.gen_num:
                 gen += 1
                 self.select()
@@ -431,9 +455,9 @@ class GeneticAlgorithm:
                 self.evaluate()
                 self.keep_the_best()
                 self.elitist()
-                print("----------------best in each iteration " + str(gen) + "----------------")
-                print_res(self.best_pop.acc_gene)
-                print(self.best_pop.net_gene[0:4])
+                # print("----------------best in each iteration " + str(gen) + "----------------")
+                # print_res(self.best_pop.acc_gene)
+                # print(self.best_pop.net_gene[0:4])
         return
 
 
