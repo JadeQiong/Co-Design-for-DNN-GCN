@@ -12,7 +12,7 @@ import numpy as np
 
 
 class Population:
-    def __init__(self, acc=Accelerator(), net=Network(True, [20, 30, 30]), fit=0, r_fit=0, c_fit=0):
+    def __init__(self, acc=Accelerator(), net=Network(True, [352800, 24893568, 3175200, 6350400]), fit=0, r_fit=0, c_fit=0):
         self.acc_gene = [acc.pe_numX, acc.pe_numY, acc.tile_numX, acc.tile_numY,
                          acc.pe_size, acc.global_buf_size, acc.pe_topo, acc.tile_topo]
         self.net = net
@@ -160,13 +160,13 @@ class GeneticAlgorithm:
             for j in range(len(ga_configs.acc_gene_type)):
                 gene = ga_configs.acc_gene_type[j]
                 if gene == "pe_numX":
-                    p.acc_gene[j] = random.randint(1, 5)
+                    p.acc_gene[j] = random.randint(3, 5)
                 elif gene == "pe_numY":
-                    p.acc_gene[j] = random.randint(1, 5)
+                    p.acc_gene[j] = random.randint(3, 5)
                 elif gene == "tile_numX":
-                    p.acc_gene[j] = random.randint(1, 5)
+                    p.acc_gene[j] = random.randint(1, 3)
                 elif gene == "tile_numY":
-                    p.acc_gene[j] = random.randint(1, 5)
+                    p.acc_gene[j] = random.randint(1, 3)
                 elif gene == "pe_size":
                     p.acc_gene[j] = random.randint(1, 5)
                 elif gene == "global_buffer_size":
@@ -338,17 +338,20 @@ class GeneticAlgorithm:
 
         # constraints
         g_number = 100000
-        area_thres = g_number
+        area_thres = 40 * pow(10, 6)
         energy_thres = g_number
         accuracy_thres = g_number
         subarray = 128
         tile_area = global_var.a_other['pe_buffer'] + h.pe_numX * h.pe_numY * (
                 global_var.a_other['router'] + subarray * subarray * global_var.a_cim['sram'] + global_var.a_other[
             'others'])
+
         # 总面积为tile个数乘以tile面积加Noc路由器面积再加上总缓冲区面积大小，tile数量等于层数
         total_area = h.tile_numX * h.tile_numY * (tile_area + global_var.a_other['router']) + global_var.a_other[
             'global_buffer']
+        # print("tile area = " + str(total_area))
         energy = 0
+        energy_new = 0
         accuracy = 0
 
         # communication time
@@ -396,9 +399,15 @@ class GeneticAlgorithm:
                     print("tile dis between " + str(accumulate_tile_id[i]) + " " + str(p))
                     continue
                 bit_num = tile_mac_count[p] * data_bit_width
-                tile_max_time = max(tile_max_time, h.tile_topo_dis(accumulate_tile_id[i], p) * bit_num)
-                energy += global_var.e_trans * bit_num
-            tile_comm = tile_max_time * (global_var.t_trans + global_var.t_package + global_var.t_package)
+                package_num = int(bit_num / (global_var.package_size * 8))
+                tile_max_time = max(tile_max_time,
+                                    h.tile_topo_dis(accumulate_tile_id[i], p) * global_var.delay_per_hop + global_var.t_trans_per_bit
+                                    + (global_var.t_package + global_var.t_recv_send) * package_num)
+                energy += (global_var.e_trans_per_bit + global_var.e_cim['sram'] * subarray * subarray) * bit_num
+                # 传输
+                # energy_new += global_var.e_trans_per_bit * bit_num
+                energy_new += global_var.e_trans_per_bit
+            tile_comm = tile_max_time
             # pe层通信
             for s in range(0, h.tile_numX * h.tile_numY):
                 for j in pe_mapping[s]:
@@ -407,33 +416,42 @@ class GeneticAlgorithm:
                         print("dis between " + str(accumulate_pe_id[s]) + " " + str(j))
                         continue
                     bit_num = pe_mac_count[s][j] * data_bit_width
-                    pe_max_time[s] = max(pe_max_time[s], h.pe_topo_dis(accumulate_pe_id[s], j) * bit_num)
-                    energy += global_var.e_trans * bit_num
-                pe_comm += pe_max_time[s] * (global_var.t_trans + global_var.t_package + global_var.t_package)
+                    package_num = int(bit_num / (global_var.package_size * 8))
+                    pe_max_time[s] = max(pe_max_time[s],
+                                         h.pe_topo_dis(accumulate_pe_id[s], j) * global_var.delay_per_hop + global_var.t_trans_per_bit
+                                         + (global_var.t_package + global_var.t_recv_send) * package_num)
+                    # energy += (global_var.e_trans_per_bit + global_var.e_cim['dram']) * bit_num
+                    # 读写 + 传输
+                    # energy_new += h.tile_numX * h.tile_numY * h.pe_numX * h.pe_numY * (
+                    #         subarray * subarray * global_var.e_cim['sram'] * bit_num + global_var.e_other['others'] +
+                    #   global_var.e_other['router']) + global_var.e_trans_per_bit * bit_num
+                    energy_new += global_var.e_cim['sram'] + global_var.e_other['others'] + global_var.e_other['router'] + global_var.e_trans_per_bit * bit_num
+                # pe_comm += pe_max_time[s] *  + global_var.t_package + global_var.t_package
+                pe_comm = max(pe_max_time)
             t_comm += (tile_comm + pe_comm)
 
-        # computation time]
-        # print("??????????????? " + str(net.macs))
+        # computation time
         for i in range(len(net.macs)):
             max_time = 0
             for s in range(0, h.tile_numX * h.tile_numY):
                 for j in pe_mapping[s]:
                     # max_time = max(max_time, pe_mac_count[s][j] * global_var.t_mac[h.quantization[j]])
-                    max_time = max(max_time, pe_mac_count[s][j] * 0.4)
+                    max_time = max(max_time, pe_mac_count[s][j] * global_var.t_mac['64b'])
                     # energy += global_var.e_mac[h.quantization[j]] * pe_mac_count[s][j]
-                    energy += 0.024 * pe_mac_count[s][j]
+                    energy += global_var.e_mac['64b'] * pe_mac_count[s][j]
             t_comp += max_time
 
+        energy_new *= (t_comm + t_comp)
         if energy > energy_thres or total_area > area_thres or accuracy < accuracy_thres:
             m = (energy - energy_thres) * (total_area - area_thres) * (accuracy - accuracy_thres)
 
         # TODO: return fitness function
         # print(t_comm + t_comp)
-        return 1 / max((t_comm + t_comp), 1) * self.p_factor * m, t_comp + t_comm, total_area, energy, accuracy
+        return 1 / max((t_comm + t_comp), 1) * self.p_factor * m, t_comp + t_comm, total_area, energy_new, accuracy
 
     def run(self):
         self.initiate()
-        print("initated")
+        print("initiated")
         self.evaluate()
         print("evaluated")
         self.keep_the_best()
@@ -460,9 +478,22 @@ class GeneticAlgorithm:
                 # print(self.best_pop.net_gene[0:4])
         return
 
+# TODO: 遗传算法的优化
+# 1. 放弃轮盘赌策略，使用fitness函数排序，排在前面的个体复制2份，中间一份，后面的放弃
+# 2. 择优交叉变异
+# 3. 防止优良基因被变异掉
 
 # test_int_encoding()
 # if test_topo_encoding() == False:
 #     print("G")
+
+
 ga = GeneticAlgorithm()
 ga.run()
+best = ga.best_pop
+print("~~ best gene ~~")
+print(ga.best_pop.acc_gene)
+print("~~  ------------------- ~~")
+print("best: time = " + str(best.time) + " ns = " + str(best.time / pow(10, 6)) + " ms")
+print("area = " + str(best.area) + " um^2 = " + str(best.area / pow(10, 6)) + " mm^2")
+print("energy = " + str(best.energy / pow(10, 12)) + " * 10^12 pJ")

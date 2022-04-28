@@ -19,7 +19,6 @@ class DESIGN_PARA:
 
     def total_mac(self, predic_actions):
         total_mac =[]
-        print(predic_actions)
         for i in range(1, len(predic_actions), 2):
             # 如果是第一个卷积层的话，它的输入为输出图像的宽*输出图像的高*输出图像通道*卷积核宽*高*输入图像通道
             if i == 1:
