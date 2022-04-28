@@ -343,12 +343,10 @@ class GeneticAlgorithm:
         accuracy_thres = g_number
         subarray = 128
         tile_area = global_var.a_other['pe_buffer'] + h.pe_numX * h.pe_numY * (
-                global_var.a_other['router'] + subarray * subarray * global_var.a_cim['sram'] + global_var.a_other[
-            'others'])
+                global_var.a_other['router'] + subarray * subarray * global_var.a_cim['sram'] + global_var.a_other['periphery'])
 
         # 总面积为tile个数乘以tile面积加Noc路由器面积再加上总缓冲区面积大小，tile数量等于层数
-        total_area = h.tile_numX * h.tile_numY * (tile_area + global_var.a_other['router']) + global_var.a_other[
-            'global_buffer']
+        total_area = h.tile_numX * h.tile_numY * (tile_area + global_var.a_other['router']) + global_var.a_other['global_buffer'] + global_var.a_other['periphery']
         # print("tile area = " + str(total_area))
         energy = 0
         energy_new = 0
@@ -361,7 +359,7 @@ class GeneticAlgorithm:
         accumulate_pe_id = [0 for q in range(h.tile_numX * h.tile_numY)]
         tile_mac_count = [0 for i in range(h.tile_numX * h.tile_numY)]
         pe_mac_count = [[0 for i in range(h.pe_numX * h.pe_numY)] for j in range(h.tile_numX * h.tile_numY)]
-        data_bit_width = 64
+        data_bit_width = 16
         # 第s个tile中的PE映射
         for s in range(h.tile_numX * h.tile_numY):
             for j in range(h.pe_numX * h.pe_numY):
@@ -403,11 +401,14 @@ class GeneticAlgorithm:
                 tile_max_time = max(tile_max_time,
                                     h.tile_topo_dis(accumulate_tile_id[i], p) * global_var.delay_per_hop + global_var.t_trans_per_bit
                                     + (global_var.t_package + global_var.t_recv_send) * package_num)
-                energy += (global_var.e_trans_per_bit + global_var.e_cim['sram'] * subarray * subarray) * bit_num
+                energy += (global_var.e_trans_per_bit ) * bit_num
                 # 传输
-                # energy_new += global_var.e_trans_per_bit * bit_num
-                energy_new += global_var.e_trans_per_bit
+                #tile通信功耗
+                energy_new += global_var.e_trans_per_bit * bit_num
+                #energy_new += global_var.e_trans_per_bit
             tile_comm = tile_max_time
+            #tile层其他功耗
+            energy_new += h.tile_numX * h.tile_numY * global_var.e_other['router'] + global_var.e_other['periphery']
             # pe层通信
             for s in range(0, h.tile_numX * h.tile_numY):
                 for j in pe_mapping[s]:
@@ -425,7 +426,8 @@ class GeneticAlgorithm:
                     # energy_new += h.tile_numX * h.tile_numY * h.pe_numX * h.pe_numY * (
                     #         subarray * subarray * global_var.e_cim['sram'] * bit_num + global_var.e_other['others'] +
                     #   global_var.e_other['router']) + global_var.e_trans_per_bit * bit_num
-                    energy_new += global_var.e_cim['sram'] + global_var.e_other['others'] + global_var.e_other['router'] + global_var.e_trans_per_bit * bit_num
+                    #pe通信功耗
+                    energy_new += global_var.e_trans_per_bit * bit_num
                 # pe_comm += pe_max_time[s] *  + global_var.t_package + global_var.t_package
                 pe_comm = max(pe_max_time)
             t_comm += (tile_comm + pe_comm)
@@ -436,12 +438,14 @@ class GeneticAlgorithm:
             for s in range(0, h.tile_numX * h.tile_numY):
                 for j in pe_mapping[s]:
                     # max_time = max(max_time, pe_mac_count[s][j] * global_var.t_mac[h.quantization[j]])
-                    max_time = max(max_time, pe_mac_count[s][j] * global_var.t_mac['64b'])
+                    max_time = max(max_time, pe_mac_count[s][j] * global_var.t_mac['16b'])
                     # energy += global_var.e_mac[h.quantization[j]] * pe_mac_count[s][j]
-                    energy += global_var.e_mac['64b'] * pe_mac_count[s][j]
+                    energy += global_var.e_mac['8b'] * pe_mac_count[s][j]
             t_comp += max_time
+            #计算功耗
+            energy_new += h.tile_numX * h.tile_numY * h.pe_numX * h.pe_numY * global_var.e_cim['sram'] + h.tile_numX * h.tile_numY * global_var.e_other['periphery']
 
-        energy_new *= (t_comm + t_comp)
+        #energy_new *= (t_comm + t_comp)
         if energy > energy_thres or total_area > area_thres or accuracy < accuracy_thres:
             m = (energy - energy_thres) * (total_area - area_thres) * (accuracy - accuracy_thres)
 
