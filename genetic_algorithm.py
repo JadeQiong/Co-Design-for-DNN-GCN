@@ -1,5 +1,5 @@
 # -*- coding: UTF-8 -*-
-from accelerator import Accelerator
+from accelerator import Chip
 from network import Network
 import ga_configs
 import global_var
@@ -12,7 +12,7 @@ import numpy as np
 
 
 class Population:
-    def __init__(self, acc=Accelerator(), net=Network(True, [352800, 24893568, 3175200, 6350400]), fit=0, r_fit=0, c_fit=0):
+    def __init__(self, acc=Chip(), net=Network(True, [352800, 24893568, 3175200, 6350400]), fit=0, r_fit=0, c_fit=0):
         self.acc_gene = [acc.pe_numX, acc.pe_numY, acc.tile_numX, acc.tile_numY,
                          acc.pe_size, acc.global_buf_size, acc.pe_topo, acc.tile_topo]
         self.net = net
@@ -323,30 +323,60 @@ class GeneticAlgorithm:
 
     def evaluate(self):
         for p in self.population:
-            acc = Accelerator(True, p.acc_gene)
+            acc = Chip(True, p.acc_gene)
             net = p.net
-            res = self.cal(acc, net)
+            res = self.cal_chip(acc, net)
             p.fit, p.time, p.area, p.energy, p.acc = res[0], res[1], res[2], res[3], res[4]
 
-    def cal(self, h, net):
-        # objective function
-        t_comm = 0
-        t_comp = 0
-
+    def cal_chiplet(self, chiplet, net):
         # 乘法因子
         m = 0
-
         # constraints
         g_number = 100000
         area_thres = 40 * pow(10, 6)
         energy_thres = g_number
         accuracy_thres = g_number
+        
+        total_time = 0
+        total_energy = 0
+        total_area = 0
+        accuracy = 0
+
+        chip_mapping = [[] for i in range(net.num_Layers)]
+        chip_mac_count = [0 for i in range(chiplet.chipX * chiplet.chipY)]
+        chip_num = chiplet.chipX * chiplet.chipY
+
+        for i in range(0, net.num_Layers):
+            # ！这里不会算
+            chip_block_mac = net.macs[i] / chip_num
+            for p in range(chip_num):
+                # tile_mapping[i]: the i th layer is mapped to tile[0th ,1th, 2th, ... ]
+                chip_mac_count[p] = chip_block_mac
+                # 方案1：平均分配给每个chip
+                chip_mapping[i].append(p)
+
+        for i in range(len(chiplet.chips)):
+            res = self.cal_chip(chiplet.chips[i], chip_mac_count[i])
+            total_time += res[1]
+            total_area += res[2]
+            total_energy += res[3]
+
+        if total_energy > energy_thres or total_area > area_thres or accuracy < accuracy_thres:
+            m = (total_energy - energy_thres) * (total_area - area_thres) * (accuracy - accuracy_thres)
+
+        return 1 / max(total_time, 1) * self.p_factor * m
+
+    def cal_chip(self, h, net):
+        tile_num = h.tile_numX * h.tile_numY
+        # objective function
+        t_comm = 0
+        t_comp = 0
         subarray = 128
         tile_area = global_var.a_other['pe_buffer'] + h.pe_numX * h.pe_numY * (
                 global_var.a_other['router'] + subarray * subarray * global_var.a_cim['sram'] + global_var.a_other['periphery'])
 
         # 总面积为tile个数乘以tile面积加Noc路由器面积再加上总缓冲区面积大小，tile数量等于层数
-        total_area = h.tile_numX * h.tile_numY * (tile_area + global_var.a_other['router']) + global_var.a_other['global_buffer'] + global_var.a_other['periphery']
+        total_area = tile_num * (tile_area + global_var.a_other['router']) + global_var.a_other['global_buffer'] + global_var.a_other['periphery']
         # print("tile area = " + str(total_area))
         energy = 0
         energy_new = 0
@@ -354,41 +384,41 @@ class GeneticAlgorithm:
 
         # communication time
         tile_mapping = [[] for i in range(net.num_Layers)]
-        pe_mapping = [[] for j in range(h.tile_numX * h.tile_numY)]
+        pe_mapping = [[] for j in range(tile_num)]
         accumulate_tile_id = [0 for m in range(net.num_Layers)]
-        accumulate_pe_id = [0 for q in range(h.tile_numX * h.tile_numY)]
-        tile_mac_count = [0 for i in range(h.tile_numX * h.tile_numY)]
-        pe_mac_count = [[0 for i in range(h.pe_numX * h.pe_numY)] for j in range(h.tile_numX * h.tile_numY)]
+        accumulate_pe_id = [0 for q in range(tile_num)]
+        tile_mac_count = [0 for i in range(tile_num)]
+        pe_mac_count = [[0 for i in range(h.pe_numX * h.pe_numY)] for j in range(tile_num)]
         data_bit_width = 16
         # 第s个tile中的PE映射
-        for s in range(h.tile_numX * h.tile_numY):
+        for s in range(tile_num):
             for j in range(h.pe_numX * h.pe_numY):
                 pe_mapping[s].append(j)
         # print(h.tile_numX * h.tile_numY, h.pe_numX * h.pe_numY, pe_mapping)
 
         for i in range(0, net.num_Layers):
             # ！这里不会算
-            # 方案1：平均分配给每个PE
+            # 方案1：平均分配给每个tile
             tot_mac = net.macs[i]
-            tile_block_mac = tot_mac / (h.tile_numX * h.tile_numY)
+            tile_block_mac = tot_mac / (tile_num)
             pe_block_mac = tile_block_mac / (h.pe_numX * h.pe_numY)
             # for each layer, we assign an accumulating PE(id = 0) for summing up partial sums
             accumulate_tile_id[i] = 0
-            for q in range(h.tile_numX * h.tile_numY):
+            for q in range(tile_num):
                 accumulate_pe_id[q] = 0
-            for p in range(h.tile_numX * h.tile_numY):
+            for p in range(tile_num):
                 # tile_mapping[i]: the i th layer is mapped to tile[0th ,1th, 2th, ... ]
                 tile_mac_count[p] = tile_block_mac
                 tile_mapping[i].append(p)
 
-            for s in range(h.tile_numX * h.tile_numY):
+            for s in range(tile_num):
                 for j in range(h.pe_numX * h.pe_numY):
                     # pe_mapping[i]: the i th layer is mapped to pe[0th ,1th, 2th, ... ]
                     pe_mac_count[s][j] = pe_block_mac
 
         for i in range(net.num_Layers):
             tile_max_time = 0
-            pe_max_time = [0 for s in range(h.tile_numX * h.tile_numY)]
+            pe_max_time = [0 for s in range(tile_num)]
             pe_comm = 0
             # tile层通信
             for p in tile_mapping[i]:
@@ -408,9 +438,9 @@ class GeneticAlgorithm:
                 #energy_new += global_var.e_trans_per_bit
             tile_comm = tile_max_time
             #tile层其他功耗
-            energy_new += h.tile_numX * h.tile_numY * global_var.e_other['router'] + global_var.e_other['periphery']
+            energy_new += tile_num * global_var.e_other['router'] + global_var.e_other['periphery']
             # pe层通信
-            for s in range(0, h.tile_numX * h.tile_numY):
+            for s in range(0, tile_num):
                 for j in pe_mapping[s]:
                     if accumulate_pe_id[s] >= len(h.pe_topo) or j >= len(h.pe_topo):
                         print("pe topo = " + str(h.pe_topo.shape))
@@ -435,7 +465,7 @@ class GeneticAlgorithm:
         # computation time
         for i in range(len(net.macs)):
             max_time = 0
-            for s in range(0, h.tile_numX * h.tile_numY):
+            for s in range(0, tile_num):
                 for j in pe_mapping[s]:
                     # max_time = max(max_time, pe_mac_count[s][j] * global_var.t_mac[h.quantization[j]])
                     max_time = max(max_time, pe_mac_count[s][j] * global_var.t_mac['16b'])
@@ -443,15 +473,13 @@ class GeneticAlgorithm:
                     energy += global_var.e_mac['8b'] * pe_mac_count[s][j]
             t_comp += max_time
             #计算功耗
-            energy_new += h.tile_numX * h.tile_numY * h.pe_numX * h.pe_numY * global_var.e_cim['sram'] + h.tile_numX * h.tile_numY * global_var.e_other['periphery']
+            energy_new += tile_num * h.pe_numX * h.pe_numY * global_var.e_cim['sram'] + tile_num * global_var.e_other['periphery']
 
-        #energy_new *= (t_comm + t_comp)
-        if energy > energy_thres or total_area > area_thres or accuracy < accuracy_thres:
-            m = (energy - energy_thres) * (total_area - area_thres) * (accuracy - accuracy_thres)
+        energy_new *= (t_comm + t_comp)
 
         # TODO: return fitness function
         # print(t_comm + t_comp)
-        return 1 / max((t_comm + t_comp), 1) * self.p_factor * m, t_comp + t_comm, total_area, energy_new, accuracy
+        return 1/(t_comp + t_comm), t_comp + t_comm, total_area, energy_new, accuracy
 
     def run(self):
         self.initiate()

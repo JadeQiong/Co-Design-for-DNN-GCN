@@ -10,6 +10,7 @@ def get_dis(dis, num, id1, id2):
                 dis[i][j] = min(dis[i][j], dis[i][k] + dis[k][j])
     return dis[id1][id2]
 
+
 # 带权topo初始化
 def initiate_topo(topo, x, y):
     for i in range(x - 1):
@@ -26,7 +27,7 @@ def initiate_topo(topo, x, y):
             topo[topo_id + 1][topo_id] = weight
 
 
-class Accelerator(object):
+class Chip(object):
 
     def __init__(self, uselist=False, acc_gene=[],
                  PE_numX=4, PE_numY=4, tile_numX=5, tile_numY=5, PE_size=10,
@@ -108,3 +109,13 @@ class Accelerator(object):
         print("global buffer size is " + str(self.global_buf_size))
         # print(self.topo)
 
+
+class Chiplet:
+    def __init__(self, useDefault=False, chipX=4, chipY=4,
+                 chips=[Chip() for i in range(16)], chiplet_topo=np.ones((4, 4))):
+        self.chipX = chipX
+        self.chipY = chipY
+        self.chips = chips
+        self.chiplet_topo = chiplet_topo
+        if useDefault:
+            initiate_topo(self.chiplet_topo, self.chipX, self.chipY)
