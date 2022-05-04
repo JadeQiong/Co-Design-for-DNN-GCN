@@ -1,5 +1,5 @@
 # -*- coding: UTF-8 -*-
-from accelerator import Chip
+from accelerator import Chip, Chiplet, initiate_topo
 from network import Network
 import ga_configs
 import global_var
@@ -323,9 +323,12 @@ class GeneticAlgorithm:
 
     def evaluate(self):
         for p in self.population:
-            acc = Chip(True, p.acc_gene)
+            chiplet_topo = np.zeros((16, 16))
+            initiate_topo(chiplet_topo, 4, 4)
+            chips = [Chip(uselist=True, acc_gene=p.acc_gene) for i in range(16)]
+            chiplet = Chiplet(useDefault=False, chips=chips, chiplet_topo=chiplet_topo)
             net = p.net
-            res = self.cal_chip(acc, net)
+            res = self.cal_chiplet(chiplet, net)
             p.fit, p.time, p.area, p.energy, p.acc = res[0], res[1], res[2], res[3], res[4]
 
     def cal_chiplet(self, chiplet, net):
@@ -335,16 +338,16 @@ class GeneticAlgorithm:
         g_number = 100000
         area_thres = 40 * pow(10, 6)
         energy_thres = g_number
-        accuracy_thres = g_number
+        error_thres = g_number
         
         total_time = 0
         total_energy = 0
         total_area = 0
-        accuracy = 0
+        total_error = 0
 
         chip_mapping = [[] for i in range(net.num_Layers)]
-        chip_mac_count = [0 for i in range(chiplet.chipX * chiplet.chipY)]
         chip_num = chiplet.chipX * chiplet.chipY
+        chip_mac_count = [0 for i in range(chip_num)]
 
         for i in range(0, net.num_Layers):
             # ！这里不会算
@@ -357,129 +360,113 @@ class GeneticAlgorithm:
 
         for i in range(len(chiplet.chips)):
             res = self.cal_chip(chiplet.chips[i], chip_mac_count[i])
-            total_time += res[1]
-            total_area += res[2]
-            total_energy += res[3]
+            total_time, total_area, total_energy, total_error = self.cal_chip(chiplet.chips[i], chip_mac_count[i])
+            print(chip_mac_count[i])
+            print("=============== total time =========" + str(total_time))
+            print("=============== total area =========" + str(total_area))
+            print("=============== total energy =========" + str(total_energy))
+            # total_time += res[0]
+            # total_area += res[1]
+            # total_energy += res[2]
 
-        if total_energy > energy_thres or total_area > area_thres or accuracy < accuracy_thres:
-            m = (total_energy - energy_thres) * (total_area - area_thres) * (accuracy - accuracy_thres)
+        if total_energy > energy_thres or total_area > area_thres or total_error < error_thres:
+            m = (total_energy - energy_thres) * (total_area - area_thres) * (total_error - error_thres)
 
-        return 1 / max(total_time, 1) * self.p_factor * m
+        return 1 / max(total_time, 1) * self.p_factor * m, total_time, total_area, total_energy, total_error
 
-    def cal_chip(self, h, net):
-        tile_num = h.tile_numX * h.tile_numY
-        # objective function
+    def cal_chip(self, chip, mac):
+        tile_num = chip.tile_numX * chip.tile_numY
+        pe_num = chip.pe_numX * chip.pe_numY
         t_comm = 0
         t_comp = 0
         subarray = 128
-        tile_area = global_var.a_other['pe_buffer'] + h.pe_numX * h.pe_numY * (
-                global_var.a_other['router'] + subarray * subarray * global_var.a_cim['sram'] + global_var.a_other['periphery'])
+        tile_area = global_var.a_other['pe_buffer'] + pe_num * (
+                global_var.a_other['router'] + subarray * subarray * global_var.a_cim['sram'] + global_var.a_other[
+            'periphery'])
 
         # 总面积为tile个数乘以tile面积加Noc路由器面积再加上总缓冲区面积大小，tile数量等于层数
-        total_area = tile_num * (tile_area + global_var.a_other['router']) + global_var.a_other['global_buffer'] + global_var.a_other['periphery']
+        total_area = tile_num * (tile_area + global_var.a_other['router']) + global_var.a_other['global_buffer'] + \
+                     global_var.a_other['periphery']
         # print("tile area = " + str(total_area))
         energy = 0
         energy_new = 0
         accuracy = 0
 
         # communication time
-        tile_mapping = [[] for i in range(net.num_Layers)]
         pe_mapping = [[] for j in range(tile_num)]
-        accumulate_tile_id = [0 for m in range(net.num_Layers)]
+        # for each layer with macs = mac, we assign tile_id = 0 for accumulating
+        accumulate_tile_id = 0
         accumulate_pe_id = [0 for q in range(tile_num)]
-        tile_mac_count = [0 for i in range(tile_num)]
-        pe_mac_count = [[0 for i in range(h.pe_numX * h.pe_numY)] for j in range(tile_num)]
+        tile_mac_count = [mac/tile_num for i in range(tile_num)]
+        pe_mac_count = [[mac/(tile_num * pe_num) for i in range(pe_num)]
+                        for j in range(tile_num)]
+
+        tile_max_time = 0
+        pe_max_time = 0
         data_bit_width = 16
-        # 第s个tile中的PE映射
         for s in range(tile_num):
-            for j in range(h.pe_numX * h.pe_numY):
+            for j in range(pe_num):
                 pe_mapping[s].append(j)
-        # print(h.tile_numX * h.tile_numY, h.pe_numX * h.pe_numY, pe_mapping)
 
-        for i in range(0, net.num_Layers):
-            # ！这里不会算
-            # 方案1：平均分配给每个tile
-            tot_mac = net.macs[i]
-            tile_block_mac = tot_mac / (tile_num)
-            pe_block_mac = tile_block_mac / (h.pe_numX * h.pe_numY)
-            # for each layer, we assign an accumulating PE(id = 0) for summing up partial sums
-            accumulate_tile_id[i] = 0
-            for q in range(tile_num):
-                accumulate_pe_id[q] = 0
-            for p in range(tile_num):
-                # tile_mapping[i]: the i th layer is mapped to tile[0th ,1th, 2th, ... ]
-                tile_mac_count[p] = tile_block_mac
-                tile_mapping[i].append(p)
+        # tile层通信
+        for p in range(tile_num):
+            if accumulate_tile_id >= len(chip.tile_topo) or p >= len(chip.tile_topo):
+                print("tile topo = " + str(chip.tile_topo.shape))
+                print("tile dis between " + str(accumulate_tile_id) + " " + str(p))
+                continue
+            bit_num = tile_mac_count[p] * data_bit_width
+            package_num = int(bit_num / (global_var.package_size * 8))
+            tile_max_time = max(tile_max_time,
+                                chip.tile_topo_dis(accumulate_tile_id, p)
+                                * global_var.delay_per_hop + global_var.t_trans_per_bit
+                                + (global_var.t_package + global_var.t_recv_send) * package_num)
+            energy += global_var.e_trans_per_bit * bit_num
+            # 传输
+            # tile通信功耗
+            energy_new += global_var.e_trans_per_bit * bit_num
 
-            for s in range(tile_num):
-                for j in range(h.pe_numX * h.pe_numY):
-                    # pe_mapping[i]: the i th layer is mapped to pe[0th ,1th, 2th, ... ]
-                    pe_mac_count[s][j] = pe_block_mac
-
-        for i in range(net.num_Layers):
-            tile_max_time = 0
-            pe_max_time = [0 for s in range(tile_num)]
-            pe_comm = 0
-            # tile层通信
-            for p in tile_mapping[i]:
-                if accumulate_tile_id[i] >= len(h.tile_topo) or p >= len(h.tile_topo):
-                    print("tile topo = " + str(h.tile_topo.shape))
-                    print("tile dis between " + str(accumulate_tile_id[i]) + " " + str(p))
+        tile_comm = tile_max_time
+        # tile层其他功耗
+        energy_new += tile_num * global_var.e_other['router'] + global_var.e_other['periphery']
+        # pe层通信
+        for s in range(0, tile_num):
+            for j in pe_mapping[s]:
+                if accumulate_pe_id[s] >= len(chip.pe_topo) or j >= len(chip.pe_topo):
+                    print("pe topo = " + str(chip.pe_topo.shape))
+                    print("dis between " + str(accumulate_pe_id[s]) + " " + str(j))
                     continue
-                bit_num = tile_mac_count[p] * data_bit_width
+
+                bit_num = pe_mac_count[s][j] * data_bit_width
                 package_num = int(bit_num / (global_var.package_size * 8))
-                tile_max_time = max(tile_max_time,
-                                    h.tile_topo_dis(accumulate_tile_id[i], p) * global_var.delay_per_hop + global_var.t_trans_per_bit
-                                    + (global_var.t_package + global_var.t_recv_send) * package_num)
-                energy += (global_var.e_trans_per_bit ) * bit_num
-                # 传输
-                #tile通信功耗
+                pe_max_time = max(pe_max_time,
+                                     chip.pe_topo_dis(accumulate_pe_id[s], j) *
+                                  global_var.delay_per_hop + global_var.t_trans_per_bit
+                                     + (global_var.t_package + global_var.t_recv_send) * package_num)
+                # energy += (global_var.e_trans_per_bit + global_var.e_cim['dram']) * bit_num
+                # 读写 + 传输
+                # energy_new += h.tile_numX * h.tile_numY * h.pe_numX * h.pe_numY * (
+                #         subarray * subarray * global_var.e_cim['sram'] * bit_num + global_var.e_other['others'] +
+                #   global_var.e_other['router']) + global_var.e_trans_per_bit * bit_num
+                # pe通信功耗
                 energy_new += global_var.e_trans_per_bit * bit_num
-                #energy_new += global_var.e_trans_per_bit
-            tile_comm = tile_max_time
-            #tile层其他功耗
-            energy_new += tile_num * global_var.e_other['router'] + global_var.e_other['periphery']
-            # pe层通信
-            for s in range(0, tile_num):
-                for j in pe_mapping[s]:
-                    if accumulate_pe_id[s] >= len(h.pe_topo) or j >= len(h.pe_topo):
-                        print("pe topo = " + str(h.pe_topo.shape))
-                        print("dis between " + str(accumulate_pe_id[s]) + " " + str(j))
-                        continue
-                    bit_num = pe_mac_count[s][j] * data_bit_width
-                    package_num = int(bit_num / (global_var.package_size * 8))
-                    pe_max_time[s] = max(pe_max_time[s],
-                                         h.pe_topo_dis(accumulate_pe_id[s], j) * global_var.delay_per_hop + global_var.t_trans_per_bit
-                                         + (global_var.t_package + global_var.t_recv_send) * package_num)
-                    # energy += (global_var.e_trans_per_bit + global_var.e_cim['dram']) * bit_num
-                    # 读写 + 传输
-                    # energy_new += h.tile_numX * h.tile_numY * h.pe_numX * h.pe_numY * (
-                    #         subarray * subarray * global_var.e_cim['sram'] * bit_num + global_var.e_other['others'] +
-                    #   global_var.e_other['router']) + global_var.e_trans_per_bit * bit_num
-                    #pe通信功耗
-                    energy_new += global_var.e_trans_per_bit * bit_num
-                # pe_comm += pe_max_time[s] *  + global_var.t_package + global_var.t_package
-                pe_comm = max(pe_max_time)
-            t_comm += (tile_comm + pe_comm)
+            # pe_comm += pe_max_time[s] *  + global_var.t_package + global_var.t_package
+            pe_comm = pe_max_time
+        t_comm += (tile_comm + pe_comm)
 
         # computation time
-        for i in range(len(net.macs)):
-            max_time = 0
-            for s in range(0, tile_num):
-                for j in pe_mapping[s]:
-                    # max_time = max(max_time, pe_mac_count[s][j] * global_var.t_mac[h.quantization[j]])
-                    max_time = max(max_time, pe_mac_count[s][j] * global_var.t_mac['16b'])
-                    # energy += global_var.e_mac[h.quantization[j]] * pe_mac_count[s][j]
-                    energy += global_var.e_mac['8b'] * pe_mac_count[s][j]
-            t_comp += max_time
-            #计算功耗
-            energy_new += tile_num * h.pe_numX * h.pe_numY * global_var.e_cim['sram'] + tile_num * global_var.e_other['periphery']
+        max_comm_time = 0
+        for s in range(0, tile_num):
+            for j in pe_mapping[s]:
+                # max_time = max(max_time, pe_mac_count[s][j] * global_var.t_mac[h.quantization[j]])
+                max_comm_time = max(max_comm_time, pe_mac_count[s][j] * global_var.t_mac['16b'])
+                # energy += global_var.e_mac[h.quantization[j]] * pe_mac_count[s][j]
+                energy += global_var.e_mac['8b'] * pe_mac_count[s][j]
+        t_comp += max_comm_time
+        # 计算功耗
+        energy_new += tile_num * pe_num * global_var.e_cim['sram'] + tile_num * global_var.e_other['periphery']
 
         energy_new *= (t_comm + t_comp)
-
-        # TODO: return fitness function
-        # print(t_comm + t_comp)
-        return 1/(t_comp + t_comm), t_comp + t_comm, total_area, energy_new, accuracy
+        return t_comp + t_comm, total_area, energy_new, accuracy
 
     def run(self):
         self.initiate()
