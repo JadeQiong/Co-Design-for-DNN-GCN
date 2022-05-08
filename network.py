@@ -1,6 +1,8 @@
 import numpy as np
+
+
 class Network:
-    def __init__(self, useList = False, macs = [], layers=[("cov", 20, 20),("cov", 15, 15)]):
+    def __init__(self, useList=False, macs=[], layers=[("cov", 20, 20), ("cov", 15, 15)]):
         if useList is False:
             self.num_Layers = len(layers)
             self.layers = layers
@@ -12,8 +14,7 @@ class Network:
             self.macs = macs
             self.num_Layers = len(macs)
 
-
     def print(self):
-        print("number of layers is "+ str(self.num_Layers))
+        print("number of layers is " + str(self.num_Layers))
         print("layers ", end="")
         print(self.layers)

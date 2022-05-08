@@ -32,7 +32,6 @@ class DESIGN_PARA:
             total_mac.append(mac)
         return total_mac
 
-
     def get_design(self, predic_actions):  ## here, layers denote a convolution operation
         layers_size = []
         layer_size = [0] * 5
