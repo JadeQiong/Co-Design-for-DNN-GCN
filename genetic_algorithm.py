@@ -336,6 +336,7 @@ class GeneticAlgorithm:
             probability = []
             for i in range(len(p.acc_gene)):
                 probability.append(random.random())
+            # 随机挑选个基因变异
             for i in range(len(p.acc_gene)):
                 attr = ga_configs.acc_gene_type[i]
                 if probability[i] < ga_configs.mutate_rates[attr]:
@@ -351,8 +352,16 @@ class GeneticAlgorithm:
                             for t in range(num):
                                 pp = random.random()
                                 if pp < ga_configs.mutate_rates[attr]:
-                                    p.acc_gene[i][q][t] = 1 - p.acc_gene[i][q][t]
-                        # pass
+                                    p.acc_gene[i][q][t] = 0 if p.acc_gene[i][q][t] > 0\
+                                        else random.randint(1, global_var.max_bandwidth)
+                    elif attr == "pe_numX" or attr == "pe_numY":
+                        p.acc_gene[i] = random.randint(1, 4)
+                        # refactor pe_topo
+                        p.acc_gene[6] = decode_topo(encode_topo(p.acc_gene[6]), p.pe_num())
+                    elif attr == "tile_numX" or attr == "tile_numY":
+                        p.acc_gene[i] = random.randint(1, 4)
+                        # refactor tile_topo
+                        p.acc_gene[7] = decode_topo(encode_topo(p.acc_gene[7]), p.tile_num())
 
             for i in range(len(p.chiplet_gene)):
                 pro = random.random()
@@ -368,7 +377,8 @@ class GeneticAlgorithm:
                             for t in range(num):
                                 pp = random.random()
                                 if pp < ga_configs.mutate_rates[attr]:
-                                    p.chiplet_gene[i][q][t] = 1 - p.acc_gene[i][q][t]
+                                    p.chiplet_gene[i][q][t] = 0 if p.acc_gene[i][q][t] > 0\
+                                        else random.randint(1, global_var.max_bandwidth)
                         pass
 
         return
@@ -392,8 +402,9 @@ class GeneticAlgorithm:
 
     def evaluate(self):
         for p in self.population:
-            chiplet_topo = np.zeros((16, 16))
-            initiate_topo(chiplet_topo, 4, 4)
+            # chiplet_topo = np.zeros((16, 16))
+            # initiate_topo(chiplet_topo, 4, 4)
+            chiplet_topo = p.chiplet_gene[2]
             chips = [Chip(uselist=True, acc_gene=p.acc_gene) for i in range(16)]
             chiplet = Chiplet(useDefault=False, chips=chips, chiplet_topo=chiplet_topo)
             net = p.net
@@ -429,7 +440,7 @@ class GeneticAlgorithm:
 
         for i in range(len(chip_mapping)):
             for p in chip_mapping[i]:
-                res = self.cal_chip(chiplet.chips[p], chip_mac_count[i])
+                # res = self.cal_chip(chiplet.chips[p], chip_mac_count[i])
                 tmp_time, tmp_area, tmp_energy, tmp_error = self.cal_chip(chiplet.chips[i], chip_mac_count[i])
                 # print("=============== tmp time =========" + str(tmp_time))
                 # print("=============== tmp area =========" + str(tmp_area))
