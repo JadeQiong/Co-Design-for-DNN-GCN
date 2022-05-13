@@ -146,7 +146,7 @@ def print_res(res):
 
 class GeneticAlgorithm:
 
-    def __init__(self, pop_num=1, iter_num=1, gen_num=5, pf=1):
+    def __init__(self, pop_num=10, iter_num=5, gen_num=50, pf=1):
         self.pop_num = pop_num  # 种群数量
         self.iter_num = iter_num  # 迭代次数
         self.gen_num = gen_num  # 迭代一次的时候有多少代个体产生
@@ -165,23 +165,23 @@ class GeneticAlgorithm:
             for j in range(len(ga_configs.chiplet_gene_type)):
                 gene = ga_configs.chiplet_gene_type[j]
                 if gene == "chipX" or gene == "chipY":
-                    p.chiplet_gene[j] = random.randint(1, 4)
-                    p.chiplet_gene[j] = random.randint(1, 4)
+                    p.chiplet_gene[j] = 5
+                    p.chiplet_gene[j] = 5
                 elif gene == "chiplet_topo":
                     p.chiplet_gene[j] = random_topo(p.chip_num())
 
             for j in range(len(ga_configs.acc_gene_type)):
                 gene = ga_configs.acc_gene_type[j]
                 if gene == "pe_numX":
-                    p.acc_gene[j] = random.randint(3, 5)
+                    p.acc_gene[j] = 4
                 elif gene == "pe_numY":
-                    p.acc_gene[j] = random.randint(3, 5)
+                    p.acc_gene[j] = 4
                 elif gene == "tile_numX":
-                    p.acc_gene[j] = random.randint(1, 3)
+                    p.acc_gene[j] = 2
                 elif gene == "tile_numY":
-                    p.acc_gene[j] = random.randint(1, 3)
+                    p.acc_gene[j] = 2
                 elif gene == "pe_size":
-                    p.acc_gene[j] = random.randint(1, 5)
+                    p.acc_gene[j] = 5
                 elif gene == "global_buffer_size":
                     p.acc_gene[j] = random.randint(1, 10)
                 elif gene == "pe_topo":
@@ -193,9 +193,13 @@ class GeneticAlgorithm:
 
     # 保存当前最优解
     def keep_the_best(self):
+        minFit = 10000
         for p in self.population:
+            print(" + " + str(p.fit))
+            minFit = min(minFit, p.fit)
             if self.best_pop.fit < p.fit:
                 self.best_pop = p
+        print("min = " + str(minFit))
 
     # 适者生存
     def select(self):
@@ -225,6 +229,12 @@ class GeneticAlgorithm:
         # update population
         self.population = copy.deepcopy(self.next_population)
         return
+
+    def select_sort(self):
+        self.population.sort(key=lambda x: x.fit, reverse=True)
+        choose_size = int(len(self.population) * 0.75)
+        for i in range(len(self.population)):
+            self.next_population[i] = self.population[i % choose_size]
 
     # 近似：分段线性
     # 多项式拟合
@@ -352,7 +362,10 @@ class GeneticAlgorithm:
                             for t in range(num):
                                 pp = random.random()
                                 if pp < ga_configs.mutate_rates[attr]:
-                                    p.acc_gene[i][q][t] = 0 if p.acc_gene[i][q][t] > 0\
+                                    # print("???")
+                                    # print(type(p.acc_gene[i]))
+                                    # print(type(p.acc_gene[i][q]))
+                                    p.acc_gene[i][q][t] = 0 if p.acc_gene[i][q][t] > 0 \
                                         else random.randint(1, global_var.max_bandwidth)
                     elif attr == "pe_numX" or attr == "pe_numY":
                         p.acc_gene[i] = random.randint(1, 4)
@@ -369,16 +382,29 @@ class GeneticAlgorithm:
                 if pro < ga_configs.mutate_rates[attr]:
                     if attr == "chipX" or attr == "chipY":
                         p.chiplet_gene[i] = random.randint(1, 4)
-                        si = encode_topo(p.chiplet_gene[2])
-                        p.chiplet_gene[2] = decode_topo(si, p.chip_num())
+                        p.chiplet_gene[2] = decode_topo(encode_topo(p.chiplet_gene[2]), p.chip_num())
                     elif attr == "chiplet_topo":
                         num = p.chip_num()
                         for q in range(num):
                             for t in range(num):
                                 pp = random.random()
-                                if pp < ga_configs.mutate_rates[attr]:
-                                    p.chiplet_gene[i][q][t] = 0 if p.acc_gene[i][q][t] > 0\
-                                        else random.randint(1, global_var.max_bandwidth)
+                                #if pp < ga_configs.mutate_rates[attr]:
+                        try:
+                            tmp = p.chiplet_gene[i]
+                            tmp[q][t] = 0 if tmp[q][t] > 0 \
+                                else random.randint(1, global_var.max_bandwidth)
+                            p.chiplet_gene[i]=tmp
+                        except:
+                            print("( " + str(q) + ", " + str(t) + ") ")
+                            print("ERROR + ")
+                            print(p.chiplet_gene[i].shape)
+                            print(type(p.chiplet_gene[i]))
+                            print(p.chiplet_gene[i])
+                            print(p.chiplet_gene[i][0])
+                            print(p.chiplet_gene[i][0][0])
+                            a = p.chiplet_gene[i]
+                            print("aqt  ?? = " + str(a[q][t]))
+
                         pass
 
         return
@@ -454,11 +480,11 @@ class GeneticAlgorithm:
         if total_energy > energy_thres or total_area > area_thres:
             m = (total_energy - energy_thres) * (total_area - area_thres)
 
-        print("=============== total time =========" + str(total_time/pow(10, 6)))
-        print("=============== total area =========" + str(total_area/pow(10, 6)))
-        print("=============== total energy =========" + str(total_energy/pow(10, 12)))
+        # print("=============== total time =========" + str(total_time/pow(10, 6)))
+        # print("=============== total area =========" + str(total_area/pow(10, 6)))
+        # print("=============== total energy =========" + str(total_energy/pow(10, 12)))
 
-        print(1 / (max(1, total_time) / pow(10, 6)))
+        # (1 / (max(1, total_time) / pow(10, 6)))
         # 1 / (max(1, total_time) / pow(10, 6) + self.p_factor * m)
         return 1 / (max(1, total_time) / pow(10, 6)), total_time, total_area, total_energy, total_error
 
@@ -569,7 +595,7 @@ class GeneticAlgorithm:
             print("iter = " + str(cur_iter))
             while gen < self.gen_num:
                 gen += 1
-                self.select()
+                self.select_sort()
                 self.mutate()
                 self.crossover()
                 self.evaluate()
@@ -590,7 +616,6 @@ class GeneticAlgorithm:
 # test_int_encoding()
 # if test_topo_encoding() == False:
 #     print("G")
-
 
 ga = GeneticAlgorithm()
 ga.run()
