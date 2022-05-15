@@ -4,7 +4,7 @@
 a_cim = {'sram':1.7, 'dram': 0.75, 'rram': 105}
 e_cim = {'sram': 7.352323, 'dram': 8.75, 'rram': 7.00}
 a_other = {'global_buffer': 1756.8, 'pe_buffer': 878.9,
-           'accumulator': 123.78, 'router': 16.306, 'others': 49.84, 'periphery':173.62}
+           'accumulator': 123.78, 'router': 16.306, 'others': 49.84, 'periphery': 173.62}
 e_other = {'buffer': 87.8233, 'accumulator': 1.6, 'router': 0.03188, 'others': 1.1181, 'periphery': 115.94544}
 
 # computation variables

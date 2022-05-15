@@ -27,6 +27,7 @@ class Population:
         self.energy = -1
         self.acc = -1
         self.time = -1
+        self.dis_cost = 0
 
     def pe_num(self):
         return self.acc_gene[0] * self.acc_gene[1]
@@ -192,14 +193,15 @@ class GeneticAlgorithm:
         return
 
     # 保存当前最优解
+    # fitness 的值越大越好
     def keep_the_best(self):
-        minFit = 10000
+        maxFit = 0
         for p in self.population:
             print(" + " + str(p.fit))
-            minFit = min(minFit, p.fit)
+            maxFit = min(maxFit, p.fit)
             if self.best_pop.fit < p.fit:
                 self.best_pop = p
-        print("min = " + str(minFit))
+        print("max = " + str(maxFit))
 
     # 适者生存
     def select(self):
@@ -467,7 +469,7 @@ class GeneticAlgorithm:
         for i in range(len(chip_mapping)):
             for p in chip_mapping[i]:
                 # res = self.cal_chip(chiplet.chips[p], chip_mac_count[i])
-                tmp_time, tmp_area, tmp_energy, tmp_error = self.cal_chip(chiplet.chips[i], chip_mac_count[i])
+                tmp_time, tmp_area, tmp_energy, tmp_error = self.cal_chip(chiplet.chips[i], chip_mac_count[p])
                 # print("=============== tmp time =========" + str(tmp_time))
                 # print("=============== tmp area =========" + str(tmp_area))
                 # print("=============== tmp energy =========" + str(tmp_energy))
@@ -485,10 +487,11 @@ class GeneticAlgorithm:
         # print("=============== total energy =========" + str(total_energy/pow(10, 12)))
 
         # (1 / (max(1, total_time) / pow(10, 6)))
-        # 1 / (max(1, total_time) / pow(10, 6) + self.p_factor * m)
+        1 / (max(1, total_time) / pow(10, 6) + self.p_factor * m)
         return 1 / (max(1, total_time) / pow(10, 6)), total_time, total_area, total_energy, total_error
 
     def cal_chip(self, chip, mac):
+
         tile_num = chip.tile_numX * chip.tile_numY
         pe_num = chip.pe_numX * chip.pe_numY
         t_comm = 0
